@@ -170,11 +170,11 @@ async function loadData(){
   const sid=$('sid').value.trim();
   const gids=$('gid').value.split(',').map(s=>s.trim()).filter(Boolean);
   setStatus('Memuat data dari '+gids.length+' sheet…');
-  let all=[]; let okCount=0;
+  let all=[]; let okCount=0; let rawSample=null;
   for(const gid of gids){
     setStatus('Memuat sheet gid='+gid+'…');
     const data=await fetchOneGid(sid,gid);
-    if(data){ all=all.concat(parseSheet(data)); okCount++; }
+    if(data){ if(!rawSample)rawSample=data; all=all.concat(parseSheet(data)); okCount++; }
   }
   if(!okCount){
     setStatus('Gagal memuat. Buka lewat GitHub Pages (https), bukan file lokal.','err');
@@ -182,8 +182,25 @@ async function loadData(){
   }
   ROWS=all.map((r,i)=>({...r,id:'r'+i}));
   buildFilters();
-  if(!ROWS.length)setStatus('Terhubung tapi 0 baris terbaca. Cek GID.','err');
-  else setStatus(ROWS.length+' baris dari '+okCount+' sheet dimuat. Siap dicari.','ok');
+  if(!ROWS.length){
+    setStatus('Terhubung tapi 0 baris terbaca — lihat contoh data di bawah.','err');
+    showRaw(rawSample);
+  } else setStatus(ROWS.length+' baris dari '+okCount+' sheet dimuat. Siap dicari.','ok');
+}
+
+function showRaw(data){
+  if(!data){return;}
+  let html='<div class="panel"><b>Diagnosa — 8 baris pertama sheet:</b><div style="overflow-x:auto;margin-top:8px"><table style="font-size:11px;border-collapse:collapse">';
+  for(let i=0;i<Math.min(8,data.length);i++){
+    html+='<tr>';
+    html+='<td style="border:1px solid #ccc;padding:3px;background:#eee;font-weight:700">'+i+'</td>';
+    for(let j=0;j<Math.min(10,data[i].length);j++){
+      html+='<td style="border:1px solid #ccc;padding:3px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">'+(data[i][j]||'')+'</td>';
+    }
+    html+='</tr>';
+  }
+  html+='</table></div><p style="font-size:12px;color:#8b8072;margin-top:8px">Kirim screenshot tabel ini supaya pemetaan kolom bisa disesuaikan.</p></div>';
+  $('results').innerHTML=html;
 }
 
 function findCol(headers, keywords){
@@ -195,23 +212,23 @@ function findCol(headers, keywords){
 }
 
 function parseSheet(data){
-  // cari baris header: yg mengandung "surat jalan"
+  // cari baris header
   let hIdx=-1;
-  for(let i=0;i<data.length;i++){
+  for(let i=0;i<Math.min(data.length,20);i++){
     const j=data[i].join('|').toLowerCase();
-    if(j.includes('surat jalan')){hIdx=i;break;}
+    if(j.includes('packing slip')||j.includes('surat jalan')||j.includes('no do')||(j.includes('rate')&&j.includes('distributor'))||(j.includes('expedition')&&j.includes('container'))){hIdx=i;break;}
   }
   if(hIdx<0) return [];
   const H=data[hIdx];
-  // petakan kolom berdasarkan nama header (fleksibel thd urutan)
-  const cExp = findCol(H,['ekspedisi','expedisi','ekpedisi']);
-  const cNopol=findCol(H,['nopol','no pol','polisi','no. pol']);
-  const cTgl = findCol(H,['tgl kirim','tanggal kirim','tgl','tanggal']);
-  const cDist= findCol(H,['distributor','distri','tujuan','customer','pelanggan']);
+  // petakan kolom berdasarkan nama header (ID + EN)
+  const cExp = findCol(H,['expedition','ekspedisi','expedisi','ekpedisi']);
+  const cNopol=findCol(H,['truck','nopol','no pol','polisi']);
+  const cTgl = findCol(H,['ship date','tgl kirim','tanggal kirim','tgl','tanggal']);
+  const cDist= findCol(H,['distributor','distri','customer','pelanggan']);
   const cCont= findCol(H,['container','kontainer','cont']);
   const cRate= findCol(H,['rate','harga','tarif','biaya','nominal']);
-  const cSo  = findCol(H,['no so','nomor so','so ','no. so','sales order']);
-  const cSj  = findCol(H,['surat jalan','no sj','sj','delivery order','no do']);
+  const cSo  = findCol(H,['sales order','no so','nomor so']);
+  const cSj  = findCol(H,['packing slip','surat jalan','no sj','delivery order','no do']);
 
   const g=(c,idx)=> (idx>=0 && c[idx]!=null) ? String(c[idx]).trim() : '';
   const out=[];
