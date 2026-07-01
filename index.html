@@ -80,7 +80,9 @@
   .pair:last-child{border-bottom:none}
   .pair span{flex:1;padding:3px 6px}
   .pair span:first-child{border-right:1px solid #ddd}
+  .pair span:nth-child(2){border-right:1px solid #ddd}
   .pair.phead{font-weight:700;background:#f0f0f0;font-size:10px}
+  .pair.psub{font-weight:700;background:#fafafa;font-size:10px}
   td small{color:#666;font-size:10px}
 </style>
 </head>
@@ -126,7 +128,6 @@
       <label style="margin-top:8px">GID sheet (pisahkan koma untuk gabung)</label>
       <input id="gid" value="1537494998">
       <button class="btn btn-sec" id="reload" style="margin-top:10px">Muat Ulang Data</button>
-      <button class="btn btn-sec" id="diagBtn" style="margin-top:8px">Lihat Diagnosa Kolom</button>
     </div>
   </details>
 
@@ -273,13 +274,7 @@ function parseSheet(data){
   }
   const cSo  = findCol(H,['sales order','no so','nomor so']);
   const cSj  = findCol(H,['packing slip','surat jalan','no sj','delivery order','no do']);
-
-  // simpan diagnosa header (sekali)
-  window.__diag={H:H.map((h,i)=>i+':'+h), cExp,cNopol,cTgl,cDist,cCont,cRate,cSo,cSj,
-    sampleRates:[]};
-  for(let i=hIdx+1;i<Math.min(hIdx+8,data.length);i++){
-    if(data[i]) window.__diag.sampleRates.push(data[i].map((v,j)=>j+':'+v).slice(0,14).join(' | '));
-  }
+  const cM3  = findCol(H,['m3','m³','kubikasi','kubik','cbm','volume']);
 
   const g=(c,idx)=> (idx>=0 && c[idx]!=null) ? String(c[idx]).trim() : '';
   const raw=[];
@@ -294,9 +289,10 @@ function parseSheet(data){
     const rate=toNum(g(c,cRate));
     const so=g(c,cSo);
     const sj=g(c,cSj);
+    const m3=toNum(g(c,cM3));
     if(!sj)continue;
     if(exp){lastExp=exp;}else{exp=lastExp;}
-    raw.push({exp,nopol,tgl,dist,cont,rate,so,sj});
+    raw.push({exp,nopol,tgl,dist,cont,rate,so,sj,m3});
   }
   // tahap 2: kumpulkan rate per kontainer (nopol+exp+tgl+cont), lalu tempel ke semua baris
   const rateMap={};
@@ -373,6 +369,7 @@ function render(){
           <div><b>No Truck</b>${r.nopol||'—'}</div>
           <div><b>Tgl Kirim</b>${r.tgl||'—'}</div>
           <div><b>No SO</b>${r.so||'—'}</div>
+          <div><b>Kubikasi</b>${r.m3>0?r.m3.toLocaleString('id-ID')+' m³':'—'}</div>
           <div><b>Harga</b><span class="rate ${r.rate>0?'':'none'}">${r.rate>0?fmtRp(r.rate):'(ikut kontainer)'}</span></div>
         </div>
       </div>
@@ -407,33 +404,32 @@ function buildPrint(){
   const groups={};
   rows.forEach(r=>{
     const k=r.contKey||(r.nopol+'|'+r.exp+'|'+r.tgl+'|'+r.cont);
-    if(!groups[k]) groups[k]={nopol:r.nopol,exp:r.exp,tgl:r.tgl,cont:r.cont,dist:r.dist,rate:r.rate||0,sj:[],so:[]};
+    if(!groups[k]) groups[k]={nopol:r.nopol,exp:r.exp,tgl:r.tgl,cont:r.cont,dist:r.dist,rate:r.rate||0,items:[],seenSj:new Set()};
     const gg=groups[k];
     if(r.rate>0) gg.rate=r.rate;
-    if(r.sj && !gg.sj.includes(r.sj)) gg.sj.push(r.sj);
-    if(r.so && !gg.so.includes(r.so)) gg.so.push(r.so);
+    if(r.sj && !gg.seenSj.has(r.sj)){ gg.seenSj.add(r.sj); gg.items.push({sj:r.sj,so:r.so,m3:r.m3||0}); }
     if(!gg.dist && r.dist) gg.dist=r.dist;
   });
   // hanya kontainer yang ADA harganya
   let list=Object.values(groups).filter(g=>g.rate>0);
   const total=list.reduce((s,g)=>s+g.rate,0);
+  const totalM3=list.reduce((s,g)=>s+g.items.reduce((a,it)=>a+(it.m3||0),0),0);
   const today=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
   const skipped=Object.values(groups).length-list.length;
+  const fmtM3=n=>n>0?n.toLocaleString('id-ID',{maximumFractionDigits:2}):'—';
 
   const body=list.map((g,i)=>{
-    const pairs=[];
-    const n=Math.max(g.sj.length,g.so.length);
-    for(let x=0;x<n;x++){
-      const sj=g.sj[x]||'';const so=g.so[x]||'';
-      pairs.push(`<div class="pair"><span>${sj||'—'}</span><span>${so||'—'}</span></div>`);
-    }
+    const subM3=g.items.reduce((a,it)=>a+(it.m3||0),0);
+    const pairs=g.items.map(it=>
+      `<div class="pair"><span>${it.sj||'—'}</span><span>${it.so||'—'}</span><span class="r">${fmtM3(it.m3)}</span></div>`
+    ).join('');
     return `<tr>
       <td>${i+1}</td>
       <td>${g.dist||'—'}</td>
       <td>${g.exp||'—'}</td>
       <td>${g.nopol||'—'}<br><small>${g.cont||''}</small></td>
       <td>${g.tgl||'—'}</td>
-      <td class="pairs"><div class="pair phead"><span>No SPA</span><span>No SO</span></div>${pairs.join('')}</td>
+      <td class="pairs"><div class="pair phead"><span>No SPA</span><span>No SO</span><span class="r">m³</span></div>${pairs}<div class="pair psub"><span></span><span class="r">Sub m³</span><span class="r">${fmtM3(subM3)}</span></div></td>
       <td class="r">${fmtRp(g.rate)}</td>
     </tr>`;
   }).join('');
@@ -461,10 +457,10 @@ function buildPrint(){
     </div>
     <table>
       <thead><tr>
-        <th>No</th><th>Distributor</th><th>Ekspedisi</th><th>No Truck / Kontainer</th><th>Tgl Kirim</th><th>No SPA &amp; No SO</th><th class="r">Harga</th>
+        <th>No</th><th>Distributor</th><th>Ekspedisi</th><th>No Truck / Kontainer</th><th>Tgl Kirim</th><th>No SPA / No SO / m³</th><th class="r">Harga</th>
       </tr></thead>
       <tbody>${body}</tbody>
-      <tfoot><tr><td colspan="6" class="r">TOTAL</td><td class="r">${fmtRp(total)||'Rp 0'}</td></tr></tfoot>
+      <tfoot><tr><td colspan="5" class="r">TOTAL</td><td class="r">Total m³: ${fmtM3(totalM3)}</td><td class="r">${fmtRp(total)||'Rp 0'}</td></tr></tfoot>
     </table>
     ${skipped>0?`<p style="font-size:11px;color:#666;margin-top:6px">*) ${skipped} kontainer terpilih tidak dicetak karena belum ada harga.</p>`:''}
     <div class="p-sign">
@@ -476,18 +472,6 @@ function buildPrint(){
 $('cari').onclick=cari;
 $('dist').addEventListener('keydown',e=>{if(e.key==='Enter')cari();});
 $('reload').onclick=loadData;
-$('diagBtn').onclick=()=>{
-  const d=window.__diag;
-  if(!d){$('results').innerHTML='<div class="panel">Belum ada data. Muat dulu.</div>';return;}
-  let html='<div class="panel" style="font-size:12px;overflow-x:auto">';
-  html+='<b>Header terdeteksi (indeks:nama):</b><br>'+d.H.join(' | ')+'<br><br>';
-  html+='<b>Kolom dipetakan ke:</b><br>';
-  html+=`Ekspedisi=kol ${d.cExp}, Nopol=kol ${d.cNopol}, Tgl=kol ${d.cTgl}, Distributor=kol ${d.cDist}, Container=kol ${d.cCont}, <span style="color:#c0392b">Rate=kol ${d.cRate}</span>, SO=kol ${d.cSo}, SJ=kol ${d.cSj}<br><br>`;
-  html+='<b>Contoh 7 baris pertama (indeks:nilai):</b><br>';
-  html+=d.sampleRates.map(r=>'<div style="border-bottom:1px solid #eee;padding:4px 0">'+r+'</div>').join('');
-  html+='<p style="color:#8b8072;margin-top:8px">Kirim screenshot ini. Cari kolom mana yang berisi harga asli (nominal besar).</p></div>';
-  $('results').innerHTML=html;
-};
 $('clearSel').onclick=()=>{SEL.clear();render();updateSelbar();};
 $('printSel').onclick=()=>{
   if(!SEL.size)return;
