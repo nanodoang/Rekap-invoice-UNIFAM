@@ -107,8 +107,8 @@
     <div style="margin-top:10px">
       <label>ID Google Sheet</label>
       <input id="sid" value="1RFH2UALr_IM_epOBotEt7UDeudRH71D_Kc7-vE_dzgw">
-      <label style="margin-top:8px">GID (nomor sheet)</label>
-      <input id="gid" value="509254307">
+      <label style="margin-top:8px">GID sheet (pisahkan koma untuk gabung)</label>
+      <input id="gid" value="0, 1537494998">
       <button class="btn btn-sec" id="reload" style="margin-top:10px">Muat Ulang Data</button>
     </div>
   </details>
@@ -145,31 +145,48 @@ async function fetchTimeout(url,ms){
   const ctrl=new AbortController();const id=setTimeout(()=>ctrl.abort(),ms);
   try{return await fetch(url,{signal:ctrl.signal});}finally{clearTimeout(id);}
 }
-async function loadData(){
-  const sid=$('sid').value.trim(),gid=$('gid').value.trim();
-  setStatus('Memuat data…');
+
+async function fetchOneGid(sid,gid){
   const csv=`https://docs.google.com/spreadsheets/d/${sid}/export?format=csv&gid=${gid}`;
   const tries=[
-    {name:'langsung',url:csv},
-    {name:'gviz',url:`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv&gid=${gid}`},
-    {name:'cadangan',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(csv)},
+    csv,
+    `https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv&gid=${gid}`,
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(csv),
   ];
-  for(const t of tries){
+  for(const url of tries){
     try{
-      setStatus('Memuat data… ('+t.name+')');
-      const res=await fetchTimeout(t.url,12000);
+      const res=await fetchTimeout(url,12000);
       if(!res.ok)throw 0;
       const text=await res.text();
       if(!text||text.trim().startsWith('<'))throw 0;
       const p=Papa.parse(text,{skipEmptyLines:true});
-      if(p.data&&p.data.length>1){parseRows(p.data);return;}
-      throw 0;
+      if(p.data&&p.data.length>1)return p.data;
     }catch(e){}
   }
-  setStatus('Gagal memuat. Buka lewat GitHub Pages (https), bukan file lokal.','err');
+  return null;
 }
 
-function parseRows(data){
+async function loadData(){
+  const sid=$('sid').value.trim();
+  const gids=$('gid').value.split(',').map(s=>s.trim()).filter(Boolean);
+  setStatus('Memuat data dari '+gids.length+' sheet…');
+  let all=[]; let okCount=0;
+  for(const gid of gids){
+    setStatus('Memuat sheet gid='+gid+'…');
+    const data=await fetchOneGid(sid,gid);
+    if(data){ all=all.concat(parseSheet(data)); okCount++; }
+  }
+  if(!okCount){
+    setStatus('Gagal memuat. Buka lewat GitHub Pages (https), bukan file lokal.','err');
+    return;
+  }
+  ROWS=all.map((r,i)=>({...r,id:'r'+i}));
+  buildFilters();
+  if(!ROWS.length)setStatus('Terhubung tapi 0 baris terbaca. Cek GID.','err');
+  else setStatus(ROWS.length+' baris dari '+okCount+' sheet dimuat. Siap dicari.','ok');
+}
+
+function parseSheet(data){
   let hIdx=-1;
   for(let i=0;i<data.length;i++){
     const j=data[i].join('|').toLowerCase();
@@ -195,12 +212,9 @@ function parseRows(data){
     if(rate>0){lastRate=rate;lastKey=key;}
     else if(key===lastKey&&lastKey){rate=lastRate;}
     else{lastRate=0;}
-    out.push({id:'r'+i,exp,nopol,tgl,dist,cont,rate,so,sj});
+    out.push({exp,nopol,tgl,dist,cont,rate,so,sj});
   }
-  ROWS=out;
-  buildFilters();
-  if(!ROWS.length)setStatus('Terhubung tapi 0 baris terbaca. Cek GID.','err');
-  else setStatus(ROWS.length+' baris data dimuat. Siap dicari.','ok');
+  return out;
 }
 
 function buildFilters(){
