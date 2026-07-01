@@ -128,6 +128,8 @@
       <label style="margin-top:8px">GID sheet (pisahkan koma untuk gabung)</label>
       <input id="gid" value="1537494998">
       <button class="btn btn-sec" id="reload" style="margin-top:10px">Muat Ulang Data</button>
+      <label style="margin-top:12px">URL Apps Script (utk simpan ke Sheet)</label>
+      <input id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
     </div>
   </details>
 
@@ -138,7 +140,8 @@
   <div class="info">Dipilih <b id="selCount">0</b></div>
   <div style="display:flex;gap:8px">
     <button id="clearSel" style="background:#555">Batal</button>
-    <button id="printSel">Simpan &amp; Cetak</button>
+    <button id="saveSheet" style="background:#2f7d4f">Simpan ke Sheet</button>
+    <button id="printSel">Cetak</button>
   </div>
 </div>
 
@@ -398,9 +401,9 @@ function updateSelbar(){
   $('selbar').classList.toggle('show',SEL.size>0);
 }
 
-function buildPrint(){
+// hasilkan struktur data rekap dari yang dipilih
+function buildRekap(){
   const rows=[...SEL.values()];
-  // kelompokkan per kontainer
   const groups={};
   rows.forEach(r=>{
     const k=r.contKey||(r.nopol+'|'+r.exp+'|'+r.tgl+'|'+r.cont);
@@ -410,14 +413,25 @@ function buildPrint(){
     if(r.sj && !gg.seenSj.has(r.sj)){ gg.seenSj.add(r.sj); gg.items.push({sj:r.sj,so:r.so,m3:r.m3||0}); }
     if(!gg.dist && r.dist) gg.dist=r.dist;
   });
-  // hanya kontainer yang ADA harganya
-  let list=Object.values(groups).filter(g=>g.rate>0);
+  const list=Object.values(groups).filter(g=>g.rate>0).map(g=>{delete g.seenSj;return g;});
   const total=list.reduce((s,g)=>s+g.rate,0);
   const totalM3=list.reduce((s,g)=>s+g.items.reduce((a,it)=>a+(it.m3||0),0),0);
-  const today=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
   const skipped=Object.values(groups).length-list.length;
-  const fmtM3=n=>n>0?n.toLocaleString('id-ID',{maximumFractionDigits:2}):'—';
+  const noInv=$('noInv').value.trim();
+  const dari=$('tglDari').value, sampai=$('tglSampai').value;
+  const fmtD=s=>{const d=new Date(s);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});};
+  let periode='';
+  if(dari&&sampai)periode=fmtD(dari)+' s/d '+fmtD(sampai);
+  else if(dari)periode='mulai '+fmtD(dari);
+  else if(sampai)periode='s/d '+fmtD(sampai);
+  return {list,total,totalM3,skipped,noInv,periode,dibuat:new Date().toISOString()};
+}
 
+const fmtM3=n=>n>0?n.toLocaleString('id-ID',{maximumFractionDigits:2}):'—';
+
+function buildPrint(rekap){
+  const {list,total,totalM3,skipped,noInv,periode}=rekap;
+  const today=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
   const body=list.map((g,i)=>{
     const subM3=g.items.reduce((a,it)=>a+(it.m3||0),0);
     const pairs=g.items.map(it=>
@@ -433,14 +447,6 @@ function buildPrint(){
       <td class="r">${fmtRp(g.rate)}</td>
     </tr>`;
   }).join('');
-
-  const noInv=$('noInv').value.trim();
-  const dari=$('tglDari').value, sampai=$('tglSampai').value;
-  const fmtD=s=>{const d=new Date(s);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});};
-  let periode='';
-  if(dari&&sampai)periode=fmtD(dari)+' s/d '+fmtD(sampai);
-  else if(dari)periode='mulai '+fmtD(dari);
-  else if(sampai)periode='s/d '+fmtD(sampai);
 
   $('printArea').innerHTML=`
     <div class="p-head">
@@ -469,15 +475,53 @@ function buildPrint(){
     </div>`;
 }
 
+// ===== SIMPAN KE GOOGLE SHEET (via Apps Script) =====
+async function simpanKeSheet(rekap){
+  const url=($('scriptUrl').value||'').trim();
+  if(!url){ alert('URL Apps Script belum diisi. Buka "Pengaturan sumber data" dan tempel URL Web App.'); return; }
+  // ingat URL utk kunjungan berikutnya
+  try{ localStorage.setItem('script_url_unifam', url); }catch(e){}
+
+  const btn=$('saveSheet');
+  const old=btn.textContent; btn.textContent='Menyimpan…'; btn.disabled=true;
+  try{
+    await fetch(url,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(rekap)
+    });
+    // no-cors: respons tak terbaca, anggap terkirim
+    const jml=rekap.list.reduce((s,g)=>s+g.items.length,0);
+    btn.textContent='✓ Tersimpan';
+    setTimeout(()=>{btn.textContent=old;btn.disabled=false;},1800);
+    alert('Terkirim ke Google Sheet: '+jml+' baris SPA ('+rekap.list.length+' kontainer).\nSilakan cek tab tujuan di Sheet untuk memastikan.');
+    SEL.clear(); render(); updateSelbar();
+  }catch(err){
+    btn.textContent=old; btn.disabled=false;
+    alert('Gagal mengirim: '+err+'\nPeriksa URL Apps Script & koneksi.');
+  }
+}
+
 $('cari').onclick=cari;
 $('dist').addEventListener('keydown',e=>{if(e.key==='Enter')cari();});
 $('reload').onclick=loadData;
 $('clearSel').onclick=()=>{SEL.clear();render();updateSelbar();};
 $('printSel').onclick=()=>{
   if(!SEL.size)return;
-  buildPrint();
+  const rekap=buildRekap();
+  if(!rekap.list.length){alert('Tidak ada kontainer dengan harga untuk dicetak.');return;}
+  buildPrint(rekap);
   setTimeout(()=>window.print(),100);
 };
+$('saveSheet').onclick=()=>{
+  if(!SEL.size)return;
+  const rekap=buildRekap();
+  if(!rekap.list.length){alert('Tidak ada kontainer dengan harga untuk disimpan.');return;}
+  simpanKeSheet(rekap);
+};
+// pulihkan URL script tersimpan
+try{ const u=localStorage.getItem('script_url_unifam'); if(u)$('scriptUrl').value=u; }catch(e){}
 loadData();
 </script>
 </body>
