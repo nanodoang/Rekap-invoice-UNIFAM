@@ -108,7 +108,7 @@
       <label>ID Google Sheet</label>
       <input id="sid" value="1RFH2UALr_IM_epOBotEt7UDeudRH71D_Kc7-vE_dzgw">
       <label style="margin-top:8px">GID sheet (pisahkan koma untuk gabung)</label>
-      <input id="gid" value="0, 1537494998">
+      <input id="gid" value="1537494998">
       <button class="btn btn-sec" id="reload" style="margin-top:10px">Muat Ulang Data</button>
     </div>
   </details>
@@ -186,27 +186,47 @@ async function loadData(){
   else setStatus(ROWS.length+' baris dari '+okCount+' sheet dimuat. Siap dicari.','ok');
 }
 
+function findCol(headers, keywords){
+  for(let i=0;i<headers.length;i++){
+    const h=String(headers[i]||'').toLowerCase().trim();
+    for(const kw of keywords){ if(h.includes(kw)) return i; }
+  }
+  return -1;
+}
+
 function parseSheet(data){
+  // cari baris header: yg mengandung "surat jalan"
   let hIdx=-1;
   for(let i=0;i<data.length;i++){
     const j=data[i].join('|').toLowerCase();
-    if(j.includes('surat jalan')&&j.includes('rate')){hIdx=i;break;}
+    if(j.includes('surat jalan')){hIdx=i;break;}
   }
-  const start=hIdx>=0?hIdx+1:0;
+  if(hIdx<0) return [];
+  const H=data[hIdx];
+  // petakan kolom berdasarkan nama header (fleksibel thd urutan)
+  const cExp = findCol(H,['ekspedisi','expedisi','ekpedisi']);
+  const cNopol=findCol(H,['nopol','no pol','polisi','no. pol']);
+  const cTgl = findCol(H,['tgl kirim','tanggal kirim','tgl','tanggal']);
+  const cDist= findCol(H,['distributor','distri','tujuan','customer','pelanggan']);
+  const cCont= findCol(H,['container','kontainer','cont']);
+  const cRate= findCol(H,['rate','harga','tarif','biaya','nominal']);
+  const cSo  = findCol(H,['no so','nomor so','so ','no. so','sales order']);
+  const cSj  = findCol(H,['surat jalan','no sj','sj','delivery order','no do']);
+
+  const g=(c,idx)=> (idx>=0 && c[idx]!=null) ? String(c[idx]).trim() : '';
   const out=[];
   let lastRate=0,lastKey='',lastExp='';
-  for(let i=start;i<data.length;i++){
+  for(let i=hIdx+1;i<data.length;i++){
     const c=data[i];if(!c)continue;
-    let exp=(c[0]||'').trim();
-    const nopol=(c[1]||'').trim();
-    const tgl=(c[2]||'').trim();
-    const dist=(c[3]||'').trim();
-    const cont=(c[4]||'').trim();
-    let rate=toNum(c[5]);
-    const so=(c[6]||'').trim();
-    const sj=(c[7]||'').trim();
+    let exp=g(c,cExp);
+    const nopol=g(c,cNopol);
+    const tgl=g(c,cTgl);
+    const dist=g(c,cDist);
+    const cont=g(c,cCont);
+    let rate=toNum(g(c,cRate));
+    const so=g(c,cSo);
+    const sj=g(c,cSj);
     if(!sj)continue;
-    if(exp.toLowerCase()==='nama expedisi')continue;
     const key=nopol+cont+tgl;
     if(exp){lastExp=exp;}else{exp=lastExp;}
     if(rate>0){lastRate=rate;lastKey=key;}
