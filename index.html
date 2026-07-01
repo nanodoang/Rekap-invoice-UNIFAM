@@ -117,6 +117,7 @@
       <label style="margin-top:8px">GID sheet (pisahkan koma untuk gabung)</label>
       <input id="gid" value="1537494998">
       <button class="btn btn-sec" id="reload" style="margin-top:10px">Muat Ulang Data</button>
+      <button class="btn btn-sec" id="diagBtn" style="margin-top:8px">Lihat Diagnosa Kolom</button>
     </div>
   </details>
 
@@ -143,7 +144,22 @@ function toNum(v){
   if(v==null||v==='')return 0;
   if(typeof v==='number')return v;
   let s=String(v).replace(/[^0-9,.-]/g,'');
-  if(/,\d{1,2}$/.test(s))s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');
+  if(s==='')return 0;
+  const hasDot=s.includes('.'), hasComma=s.includes(',');
+  if(hasDot&&hasComma){
+    // format ID: titik=ribuan, koma=desimal → 1.234.567,89
+    s=s.replace(/\./g,'').replace(',','.');
+  }else if(hasComma){
+    // hanya koma: desimal ID (71,80) ATAU ribuan gaya EN
+    if(/,\d{1,2}$/.test(s)) s=s.replace(',', '.');   // desimal
+    else s=s.replace(/,/g,'');                        // ribuan
+  }else if(hasDot){
+    // hanya titik: bisa ribuan ID (8.551.802) atau desimal EN (8551.80)
+    const parts=s.split('.');
+    if(parts.length>2) s=s.replace(/\./g,'');         // >1 titik = ribuan ID
+    else if(parts[1] && parts[1].length===3) s=s.replace(/\./g,''); // 1 titik & 3 digit = ribuan (8.551)
+    // selain itu biarkan sbg desimal
+  }
   const n=parseFloat(s);return isNaN(n)?0:n;
 }
 function setStatus(m,c){$('status').textContent=m;$('status').className='status'+(c?' '+c:'');}
@@ -218,6 +234,14 @@ function findCol(headers, keywords){
   return -1;
 }
 
+function findLastCol(headers, keywords){
+  for(let i=headers.length-1;i>=0;i--){
+    const h=String(headers[i]||'').toLowerCase().trim();
+    for(const kw of keywords){ if(h.includes(kw)) return i; }
+  }
+  return -1;
+}
+
 function parseSheet(data){
   // cari baris header
   let hIdx=-1;
@@ -233,9 +257,20 @@ function parseSheet(data){
   const cTgl = findCol(H,['ship date','tgl kirim','tanggal kirim','tgl','tanggal']);
   const cDist= findCol(H,['distributor','distri','customer','pelanggan']);
   const cCont= findCol(H,['container','kontainer','cont']);
-  const cRate= findCol(H,['rate','harga','tarif','biaya','nominal']);
+  // Rate = kolom K (indeks 10) sesuai struktur sheet; fallback cari header 'rate' paling kanan
+  let cRate = 10;
+  if(!H[10] || !String(H[10]).toLowerCase().includes('rate')){
+    cRate = findLastCol(H,['rate','harga','tarif','biaya','nominal']);
+  }
   const cSo  = findCol(H,['sales order','no so','nomor so']);
   const cSj  = findCol(H,['packing slip','surat jalan','no sj','delivery order','no do']);
+
+  // simpan diagnosa header (sekali)
+  window.__diag={H:H.map((h,i)=>i+':'+h), cExp,cNopol,cTgl,cDist,cCont,cRate,cSo,cSj,
+    sampleRates:[]};
+  for(let i=hIdx+1;i<Math.min(hIdx+8,data.length);i++){
+    if(data[i]) window.__diag.sampleRates.push(data[i].map((v,j)=>j+':'+v).slice(0,14).join(' | '));
+  }
 
   const g=(c,idx)=> (idx>=0 && c[idx]!=null) ? String(c[idx]).trim() : '';
   const raw=[];
@@ -396,6 +431,18 @@ function buildPrint(){
 $('cari').onclick=cari;
 $('dist').addEventListener('keydown',e=>{if(e.key==='Enter')cari();});
 $('reload').onclick=loadData;
+$('diagBtn').onclick=()=>{
+  const d=window.__diag;
+  if(!d){$('results').innerHTML='<div class="panel">Belum ada data. Muat dulu.</div>';return;}
+  let html='<div class="panel" style="font-size:12px;overflow-x:auto">';
+  html+='<b>Header terdeteksi (indeks:nama):</b><br>'+d.H.join(' | ')+'<br><br>';
+  html+='<b>Kolom dipetakan ke:</b><br>';
+  html+=`Ekspedisi=kol ${d.cExp}, Nopol=kol ${d.cNopol}, Tgl=kol ${d.cTgl}, Distributor=kol ${d.cDist}, Container=kol ${d.cCont}, <span style="color:#c0392b">Rate=kol ${d.cRate}</span>, SO=kol ${d.cSo}, SJ=kol ${d.cSj}<br><br>`;
+  html+='<b>Contoh 7 baris pertama (indeks:nilai):</b><br>';
+  html+=d.sampleRates.map(r=>'<div style="border-bottom:1px solid #eee;padding:4px 0">'+r+'</div>').join('');
+  html+='<p style="color:#8b8072;margin-top:8px">Kirim screenshot ini. Cari kolom mana yang berisi harga asli (nominal besar).</p></div>';
+  $('results').innerHTML=html;
+};
 $('clearSel').onclick=()=>{SEL.clear();render();updateSelbar();};
 $('printSel').onclick=()=>{
   if(!SEL.size)return;
