@@ -97,13 +97,22 @@
       <select id="exp"><option value="">— Semua —</option></select>
     </div>
     <div class="field">
-      <label>Tanggal Kirim</label>
-      <select id="tgl"><option value="">— Semua tanggal —</option></select>
+      <label>Rentang Tanggal Kirim</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="date" id="tglDari" style="flex:1">
+        <span style="color:var(--muted);font-size:13px">s/d</span>
+        <input type="date" id="tglSampai" style="flex:1">
+      </div>
+      <small style="color:var(--muted);font-size:11px">Kosongkan keduanya = semua tanggal</small>
     </div>
     <div class="field">
       <label>Nama Distributor (opsional)</label>
       <input id="dist" list="distList" placeholder="Kosongkan utk tampil semua…" autocomplete="off">
       <datalist id="distList"></datalist>
+    </div>
+    <div class="field">
+      <label>No Invoice Ekspedisi (opsional, utk cetak)</label>
+      <input id="noInv" placeholder="mis. INV/KKL/2026/001" autocomplete="off">
     </div>
     <button class="btn" id="cari">Cari</button>
     <div class="status" id="status">Memuat data…</div>
@@ -305,16 +314,39 @@ function parseSheet(data){
 
 function buildFilters(){
   const exps=[...new Set(ROWS.map(r=>r.exp).filter(Boolean))].sort();
-  const tgls=[...new Set(ROWS.map(r=>r.tgl).filter(Boolean))];
   const dists=[...new Set(ROWS.map(r=>r.dist).filter(Boolean))].sort();
   $('exp').innerHTML='<option value="">— Semua —</option>'+exps.map(e=>`<option>${e}</option>`).join('');
-  $('tgl').innerHTML='<option value="">— Semua tanggal —</option>'+tgls.map(t=>`<option>${t}</option>`).join('');
   $('distList').innerHTML=dists.map(d=>`<option value="${d.replace(/"/g,'&quot;')}">`).join('');
 }
 
+// parse "dd/mm/yy" atau "dd/mm/yyyy" -> Date (00:00)
+function parseTgl(s){
+  if(!s)return null;
+  const m=String(s).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(!m)return null;
+  let[,d,mo,y]=m; d=+d;mo=+mo;y=+y;
+  if(y<100)y+=2000;
+  const dt=new Date(y,mo-1,d);
+  return isNaN(dt)?null:dt;
+}
+
 function cari(){
-  const e=$('exp').value,t=$('tgl').value,d=$('dist').value.trim().toLowerCase();
-  VIEW=ROWS.filter(r=>(!e||r.exp===e)&&(!t||r.tgl===t)&&(!d||r.dist.toLowerCase().includes(d)));
+  const e=$('exp').value;
+  const d=$('dist').value.trim().toLowerCase();
+  const dari=$('tglDari').value?new Date($('tglDari').value):null;
+  const sampai=$('tglSampai').value?new Date($('tglSampai').value):null;
+  if(sampai)sampai.setHours(23,59,59);
+  VIEW=ROWS.filter(r=>{
+    if(e&&r.exp!==e)return false;
+    if(d&&!r.dist.toLowerCase().includes(d))return false;
+    if(dari||sampai){
+      const rt=parseTgl(r.tgl);
+      if(!rt)return false;
+      if(dari&&rt<dari)return false;
+      if(sampai&&rt>sampai)return false;
+    }
+    return true;
+  });
   render();
 }
 
@@ -338,6 +370,7 @@ function render(){
         <div class="dist">${r.dist||'—'}</div>
         <div class="meta">
           <div><b>Ekspedisi</b>${r.exp||'—'}</div>
+          <div><b>No Truck</b>${r.nopol||'—'}</div>
           <div><b>Tgl Kirim</b>${r.tgl||'—'}</div>
           <div><b>No SO</b>${r.so||'—'}</div>
           <div><b>Harga</b><span class="rate ${r.rate>0?'':'none'}">${r.rate>0?fmtRp(r.rate):'(ikut kontainer)'}</span></div>
@@ -405,18 +438,30 @@ function buildPrint(){
     </tr>`;
   }).join('');
 
+  const noInv=$('noInv').value.trim();
+  const dari=$('tglDari').value, sampai=$('tglSampai').value;
+  const fmtD=s=>{const d=new Date(s);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});};
+  let periode='';
+  if(dari&&sampai)periode=fmtD(dari)+' s/d '+fmtD(sampai);
+  else if(dari)periode='mulai '+fmtD(dari);
+  else if(sampai)periode='s/d '+fmtD(sampai);
+
   $('printArea').innerHTML=`
     <div class="p-head">
       <h2>REKAP SURAT JALAN</h2>
       <p>PT. UNIFAM</p>
     </div>
     <div class="p-meta">
-      <div>Tanggal cetak: ${today}</div>
-      <div>Jumlah kontainer: ${list.length}</div>
+      <div>
+        ${noInv?'<div><b>No Invoice Ekspedisi:</b> '+noInv+'</div>':''}
+        ${periode?'<div><b>Periode kirim:</b> '+periode+'</div>':''}
+        <div>Tanggal cetak: ${today}</div>
+      </div>
+      <div style="text-align:right">Jumlah kontainer: ${list.length}</div>
     </div>
     <table>
       <thead><tr>
-        <th>No</th><th>Distributor</th><th>Ekspedisi</th><th>Nopol / Kontainer</th><th>Tgl Kirim</th><th>No SPA &amp; No SO</th><th class="r">Harga</th>
+        <th>No</th><th>Distributor</th><th>Ekspedisi</th><th>No Truck / Kontainer</th><th>Tgl Kirim</th><th>No SPA &amp; No SO</th><th class="r">Harga</th>
       </tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr><td colspan="6" class="r">TOTAL</td><td class="r">${fmtRp(total)||'Rp 0'}</td></tr></tfoot>
