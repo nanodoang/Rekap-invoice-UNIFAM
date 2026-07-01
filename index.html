@@ -11,14 +11,15 @@
     --line:#e2dacb; --muted:#8b8072;
     --accent:#1f6f8b; --accent-bg:#e7f1f4;
     --gold:#b8841a; --gold-bg:#fbf2dd;
+    --ok:#2f7d4f; --ok-bg:#e7f3eb;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{margin:0;background:var(--paper);color:var(--ink);
-    font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.45;padding-bottom:50px}
+    font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.45;padding-bottom:80px}
   header{padding:16px;border-bottom:2px solid var(--ink);background:var(--card)}
   header h1{margin:0;font-size:19px;letter-spacing:-.3px}
   header p{margin:3px 0 0;color:var(--muted);font-size:12.5px}
-  .wrap{padding:14px;max-width:740px;margin:0 auto}
+  .wrap{padding:14px;max-width:760px;margin:0 auto}
   .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
   label{display:block;font-size:12px;color:var(--muted);font-weight:600;margin:0 0 4px}
   select,input{width:100%;padding:11px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-family:inherit;font-size:15px}
@@ -26,15 +27,17 @@
   .btn{width:100%;padding:13px;border:none;border-radius:10px;background:var(--ink);color:var(--paper);font-weight:700;font-size:15px;cursor:pointer}
   .btn-sec{background:#fff;color:var(--ink);border:1px solid var(--line)}
   .status{font-size:12.5px;color:var(--muted);text-align:center;padding:6px;word-break:break-word}
-  .status.err{color:#c0392b}
-  .status.ok{color:#2f7d4f}
-  .res-head{display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px}
+  .status.err{color:#c0392b} .status.ok{color:var(--ok)}
+  .res-head{display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px;gap:8px}
   .res-head h2{margin:0;font-size:15px}
   .res-head .cnt{font-size:12px;color:var(--muted)}
   .total{background:var(--accent-bg);border:1px solid #cfe2e8;border-radius:10px;padding:11px 13px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
   .total b{color:var(--accent);font-size:19px}
   .total span{font-size:12.5px;color:var(--muted)}
-  .card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:12px;margin-bottom:9px}
+  .card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:12px;margin-bottom:9px;display:flex;gap:10px;align-items:flex-start}
+  .card.sel{border-left-color:var(--ok);background:var(--ok-bg)}
+  .chk{width:22px;height:22px;flex:none;margin-top:2px;accent-color:var(--ok)}
+  .card-body{flex:1;min-width:0}
   .sj{font-weight:800;font-size:16px;letter-spacing:.3px}
   .dist{font-size:13px;color:var(--ink);margin:3px 0 8px}
   .meta{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:13px}
@@ -45,16 +48,42 @@
   .config{font-size:12px;color:var(--muted)}
   .config summary{cursor:pointer;font-weight:600;color:var(--accent)}
   .config input{font-size:13px;margin-top:6px}
+  .toolbar{display:flex;gap:8px;margin-bottom:10px}
+  .toolbar .btn{padding:10px;font-size:13px}
+  .selbar{position:fixed;left:0;right:0;bottom:0;background:var(--ink);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;transform:translateY(100%);transition:.2s;z-index:50}
+  .selbar.show{transform:translateY(0)}
+  .selbar .info{font-size:13px}
+  .selbar .info b{display:block;font-size:16px}
+  .selbar button{padding:11px 16px;border:none;border-radius:9px;background:var(--gold);color:#fff;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap}
   datalist{display:none}
+  #printArea{display:none}
+  @media print{
+    body *{visibility:hidden}
+    #printArea,#printArea *{visibility:visible}
+    #printArea{display:block;position:absolute;left:0;top:0;width:100%;padding:20px}
+    .no-print{display:none!important}
+  }
+  #printArea{background:#fff;color:#000;font-size:13px}
+  .p-head{text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px}
+  .p-head h2{margin:0;font-size:20px} .p-head p{margin:2px 0;font-size:12px}
+  .p-meta{display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{border:1px solid #999;padding:6px 8px;text-align:left}
+  th{background:#eee}
+  td.r,th.r{text-align:right}
+  tfoot td{font-weight:800;background:#f3f3f3}
+  .p-sign{margin-top:40px;display:flex;justify-content:space-between;font-size:12px}
+  .p-sign div{text-align:center;width:40%}
+  .p-sign .line{margin-top:50px;border-top:1px solid #000;padding-top:4px}
 </style>
 </head>
 <body>
 <header>
   <h1>Cari Surat Jalan</h1>
-  <p>Filter ekspedisi, tanggal & distributor → surat jalan, tgl kirim, harga</p>
+  <p>Filter → centang → simpan → cetak dengan total harga</p>
 </header>
 
-<div class="wrap">
+<div class="wrap no-print">
   <div class="panel">
     <div class="field">
       <label>Nama Ekspedisi</label>
@@ -65,8 +94,8 @@
       <select id="tgl"><option value="">— Semua tanggal —</option></select>
     </div>
     <div class="field">
-      <label>Nama Distributor</label>
-      <input id="dist" list="distList" placeholder="Ketik / pilih distributor…" autocomplete="off">
+      <label>Nama Distributor (opsional)</label>
+      <input id="dist" list="distList" placeholder="Kosongkan utk tampil semua…" autocomplete="off">
       <datalist id="distList"></datalist>
     </div>
     <button class="btn" id="cari">Cari</button>
@@ -87,9 +116,20 @@
   <div id="results"></div>
 </div>
 
+<div class="selbar no-print" id="selbar">
+  <div class="info">Dipilih <b id="selCount">0</b></div>
+  <div style="display:flex;gap:8px">
+    <button id="clearSel" style="background:#555">Batal</button>
+    <button id="printSel">Simpan &amp; Cetak</button>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
 <script>
 const $=id=>document.getElementById(id);
-let ROWS=[];
+let ROWS=[], VIEW=[];
+const SEL=new Map();
 
 function fmtRp(n){return n>0?'Rp '+Math.round(n).toLocaleString('id-ID'):null;}
 function toNum(v){
@@ -99,54 +139,48 @@ function toNum(v){
   if(/,\d{1,2}$/.test(s))s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');
   const n=parseFloat(s);return isNaN(n)?0:n;
 }
-
-function setStatus(msg,cls){$('status').textContent=msg;$('status').className='status'+(cls?' '+cls:'');}
+function setStatus(m,c){$('status').textContent=m;$('status').className='status'+(c?' '+c:'');}
 
 async function fetchTimeout(url,ms){
-  const ctrl=new AbortController();
-  const id=setTimeout(()=>ctrl.abort(),ms);
-  try{ const r=await fetch(url,{signal:ctrl.signal}); return r; }
-  finally{ clearTimeout(id); }
+  const ctrl=new AbortController();const id=setTimeout(()=>ctrl.abort(),ms);
+  try{return await fetch(url,{signal:ctrl.signal});}finally{clearTimeout(id);}
 }
-
 async function loadData(){
-  const sid=$('sid').value.trim(), gid=$('gid').value.trim();
+  const sid=$('sid').value.trim(),gid=$('gid').value.trim();
   setStatus('Memuat data…');
   const csv=`https://docs.google.com/spreadsheets/d/${sid}/export?format=csv&gid=${gid}`;
   const tries=[
-    {name:'langsung', url:csv},
-    {name:'gviz', url:`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv&gid=${gid}`},
-    {name:'cadangan', url:'https://api.allorigins.win/raw?url='+encodeURIComponent(csv)},
+    {name:'langsung',url:csv},
+    {name:'gviz',url:`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv&gid=${gid}`},
+    {name:'cadangan',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(csv)},
   ];
   for(const t of tries){
     try{
       setStatus('Memuat data… ('+t.name+')');
-      const res=await fetchTimeout(t.url, 12000);
-      if(!res.ok) throw new Error('HTTP '+res.status);
+      const res=await fetchTimeout(t.url,12000);
+      if(!res.ok)throw 0;
       const text=await res.text();
-      if(!text || text.trim().startsWith('<')) throw new Error('bukan data CSV');
-      const parsed=Papa.parse(text,{skipEmptyLines:true});
-      if(parsed.data && parsed.data.length>1){ parseRows(parsed.data); return; }
-      throw new Error('data kosong');
-    }catch(e){ /* coba metode berikutnya */ }
+      if(!text||text.trim().startsWith('<'))throw 0;
+      const p=Papa.parse(text,{skipEmptyLines:true});
+      if(p.data&&p.data.length>1){parseRows(p.data);return;}
+      throw 0;
+    }catch(e){}
   }
-  setStatus('Gagal memuat. Buka aplikasi ini lewat GitHub Pages (https), bukan file lokal.','err');
+  setStatus('Gagal memuat. Buka lewat GitHub Pages (https), bukan file lokal.','err');
 }
 
 function parseRows(data){
-  // cari baris header tabel (yang mengandung "No surat jalan")
   let hIdx=-1;
   for(let i=0;i<data.length;i++){
-    const joined=data[i].join('|').toLowerCase();
-    if(joined.includes('surat jalan')&&joined.includes('rate')){hIdx=i;break;}
+    const j=data[i].join('|').toLowerCase();
+    if(j.includes('surat jalan')&&j.includes('rate')){hIdx=i;break;}
   }
-  const start = hIdx>=0 ? hIdx+1 : 0;
-  // kolom: A0 exp,B1 nopol,C2 tgl,D3 dist,E4 cont,F5 rate,G6 so,H7 sj,I8 m3
-  const out=[]; let lastRate=0,lastKey='';
+  const start=hIdx>=0?hIdx+1:0;
+  const out=[];
+  let lastRate=0,lastKey='',lastExp='';
   for(let i=start;i<data.length;i++){
-    const c=data[i];
-    if(!c)continue;
-    const exp=(c[0]||'').trim();
+    const c=data[i];if(!c)continue;
+    let exp=(c[0]||'').trim();
     const nopol=(c[1]||'').trim();
     const tgl=(c[2]||'').trim();
     const dist=(c[3]||'').trim();
@@ -154,21 +188,23 @@ function parseRows(data){
     let rate=toNum(c[5]);
     const so=(c[6]||'').trim();
     const sj=(c[7]||'').trim();
-    if(!sj||!exp||exp.toLowerCase()==='nama expedisi')continue;
+    if(!sj)continue;
+    if(exp.toLowerCase()==='nama expedisi')continue;
     const key=nopol+cont+tgl;
+    if(exp){lastExp=exp;}else{exp=lastExp;}
     if(rate>0){lastRate=rate;lastKey=key;}
     else if(key===lastKey&&lastKey){rate=lastRate;}
     else{lastRate=0;}
-    out.push({exp,nopol,tgl,dist,cont,rate,so,sj});
+    out.push({id:'r'+i,exp,nopol,tgl,dist,cont,rate,so,sj});
   }
   ROWS=out;
   buildFilters();
-  if(!ROWS.length){setStatus('Terhubung, tapi tidak ada baris data terbaca. Cek GID sheet.','err');}
+  if(!ROWS.length)setStatus('Terhubung tapi 0 baris terbaca. Cek GID.','err');
   else setStatus(ROWS.length+' baris data dimuat. Siap dicari.','ok');
 }
 
 function buildFilters(){
-  const exps=[...new Set(ROWS.map(r=>r.exp))].sort();
+  const exps=[...new Set(ROWS.map(r=>r.exp).filter(Boolean))].sort();
   const tgls=[...new Set(ROWS.map(r=>r.tgl).filter(Boolean))];
   const dists=[...new Set(ROWS.map(r=>r.dist).filter(Boolean))].sort();
   $('exp').innerHTML='<option value="">— Semua —</option>'+exps.map(e=>`<option>${e}</option>`).join('');
@@ -177,36 +213,112 @@ function buildFilters(){
 }
 
 function cari(){
-  const e=$('exp').value, t=$('tgl').value, d=$('dist').value.trim().toLowerCase();
-  let res=ROWS.filter(r=>(!e||r.exp===e)&&(!t||r.tgl===t)&&(!d||r.dist.toLowerCase().includes(d)));
-  render(res);
+  const e=$('exp').value,t=$('tgl').value,d=$('dist').value.trim().toLowerCase();
+  VIEW=ROWS.filter(r=>(!e||r.exp===e)&&(!t||r.tgl===t)&&(!d||r.dist.toLowerCase().includes(d)));
+  render();
 }
 
-function render(res){
+function render(){
   const box=$('results');
-  if(!res.length){box.innerHTML='<div class="panel empty">Tidak ada surat jalan yang cocok.</div>';return;}
-  const seen=new Set(); let total=0;
-  res.forEach(r=>{const k=r.nopol+r.cont+r.tgl;if(r.rate>0&&!seen.has(k)){seen.add(k);total+=r.rate;}});
-  let html=`<div class="res-head"><h2>Hasil Pencarian</h2><span class="cnt">${res.length} surat jalan</span></div>`;
-  if(total>0)html+=`<div class="total"><span>Total harga (per kontainer)</span><b>${fmtRp(total)}</b></div>`;
-  html+=res.map(r=>`
-    <div class="card">
-      <div class="sj">${r.sj}</div>
-      <div class="dist">${r.dist||'—'}</div>
-      <div class="meta">
-        <div><b>Ekspedisi</b>${r.exp}</div>
-        <div><b>Tgl Kirim</b>${r.tgl||'—'}</div>
-        <div><b>No SO</b>${r.so||'—'}</div>
-        <div><b>Harga</b><span class="rate ${r.rate>0?'':'none'}">${r.rate>0?fmtRp(r.rate):'(ikut kontainer)'}</span></div>
+  if(!VIEW.length){box.innerHTML='<div class="panel empty">Tidak ada surat jalan yang cocok.</div>';return;}
+  const seen=new Set();let total=0;
+  VIEW.forEach(r=>{const k=r.nopol+r.cont+r.tgl;if(r.rate>0&&!seen.has(k)){seen.add(k);total+=r.rate;}});
+  let html=`<div class="res-head"><h2>Hasil Pencarian</h2><span class="cnt">${VIEW.length} surat jalan</span></div>`;
+  html+=`<div class="toolbar">
+    <button class="btn btn-sec" id="selAll">Centang Semua</button>
+    <button class="btn btn-sec" id="unAll">Hapus Centang</button>
+  </div>`;
+  if(total>0)html+=`<div class="total"><span>Total harga hasil (per kontainer)</span><b>${fmtRp(total)}</b></div>`;
+  html+=VIEW.map(r=>{
+    const on=SEL.has(r.id);
+    return `<div class="card ${on?'sel':''}" data-id="${r.id}">
+      <input type="checkbox" class="chk" ${on?'checked':''}>
+      <div class="card-body">
+        <div class="sj">${r.sj}</div>
+        <div class="dist">${r.dist||'—'}</div>
+        <div class="meta">
+          <div><b>Ekspedisi</b>${r.exp||'—'}</div>
+          <div><b>Tgl Kirim</b>${r.tgl||'—'}</div>
+          <div><b>No SO</b>${r.so||'—'}</div>
+          <div><b>Harga</b><span class="rate ${r.rate>0?'':'none'}">${r.rate>0?fmtRp(r.rate):'(ikut kontainer)'}</span></div>
+        </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   box.innerHTML=html;
-  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+
+  box.querySelectorAll('.card').forEach(card=>{
+    const id=card.dataset.id;
+    const cb=card.querySelector('.chk');
+    const toggle=()=>{
+      if(cb.checked){SEL.set(id,VIEW.find(r=>r.id===id));card.classList.add('sel');}
+      else{SEL.delete(id);card.classList.remove('sel');}
+      updateSelbar();
+    };
+    cb.addEventListener('change',toggle);
+    card.addEventListener('click',e=>{if(e.target!==cb){cb.checked=!cb.checked;toggle();}});
+  });
+  $('selAll').onclick=()=>{VIEW.forEach(r=>SEL.set(r.id,r));render();};
+  $('unAll').onclick=()=>{VIEW.forEach(r=>SEL.delete(r.id));render();};
+  updateSelbar();
+}
+
+function updateSelbar(){
+  $('selCount').textContent=SEL.size;
+  $('selbar').classList.toggle('show',SEL.size>0);
+}
+
+function buildPrint(){
+  const rows=[...SEL.values()];
+  const seen=new Set();let total=0;
+  rows.forEach(r=>{const k=r.nopol+r.cont+r.tgl;if(r.rate>0&&!seen.has(k)){seen.add(k);total+=r.rate;}});
+  const today=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+  const seen2=new Set();
+  const body=rows.map((r,i)=>{
+    const k=r.nopol+r.cont+r.tgl;
+    let show=r.rate;
+    if(r.rate>0&&!seen2.has(k)){seen2.add(k);}else{show=0;}
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${r.sj}</td>
+      <td>${r.dist||'—'}</td>
+      <td>${r.exp||'—'}</td>
+      <td>${r.tgl||'—'}</td>
+      <td>${r.so||'—'}</td>
+      <td class="r">${show>0?fmtRp(show):'-'}</td>
+    </tr>`;
+  }).join('');
+  $('printArea').innerHTML=`
+    <div class="p-head">
+      <h2>REKAP SURAT JALAN</h2>
+      <p>PT. UNIFAM</p>
+    </div>
+    <div class="p-meta">
+      <div>Tanggal cetak: ${today}</div>
+      <div>Jumlah surat jalan: ${rows.length}</div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>No</th><th>No Surat Jalan</th><th>Distributor</th><th>Ekspedisi</th><th>Tgl Kirim</th><th>No SO</th><th class="r">Harga</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr><td colspan="6" class="r">TOTAL</td><td class="r">${fmtRp(total)||'Rp 0'}</td></tr></tfoot>
+    </table>
+    <div class="p-sign">
+      <div>Dibuat oleh,<div class="line">( .................. )</div></div>
+      <div>Disetujui oleh,<div class="line">( .................. )</div></div>
+    </div>`;
 }
 
 $('cari').onclick=cari;
 $('dist').addEventListener('keydown',e=>{if(e.key==='Enter')cari();});
 $('reload').onclick=loadData;
+$('clearSel').onclick=()=>{SEL.clear();render();updateSelbar();};
+$('printSel').onclick=()=>{
+  if(!SEL.size)return;
+  buildPrint();
+  setTimeout(()=>window.print(),100);
+};
 loadData();
 </script>
 </body>
