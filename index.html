@@ -34,19 +34,22 @@
   .total{background:var(--accent-bg);border:1px solid #cfe2e8;border-radius:10px;padding:11px 13px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
   .total b{color:var(--accent);font-size:19px}
   .total span{font-size:12.5px;color:var(--muted)}
-  .chk{width:20px;height:20px;flex:none;accent-color:var(--ok)}
+  .chk{width:17px;height:17px;flex:none;accent-color:var(--ok)}
   .rate{color:var(--gold);font-weight:700}
   .rate.none{color:var(--muted);font-weight:400}
-  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:12px}
-  table.restbl{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--card);min-width:760px}
-  table.restbl th,table.restbl td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
-  table.restbl th{background:#efe9dd;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);position:sticky;top:0}
+  .tblwrap{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px}
+  table.restbl{width:100%;border-collapse:collapse;background:var(--card);table-layout:fixed;font-size:11px}
+  table.restbl th,table.restbl td{padding:5px 5px;text-align:left;border-bottom:1px solid var(--line);word-break:break-word;overflow-wrap:anywhere;vertical-align:top}
+  table.restbl th{background:#efe9dd;font-size:9px;text-transform:uppercase;letter-spacing:.2px;color:var(--muted)}
   table.restbl tr.rrow{cursor:pointer}
   table.restbl tr.sel td{background:var(--ok-bg)}
   table.restbl td.sj{font-weight:700}
+  table.restbl td.sj .so{font-weight:400;color:var(--muted)}
   table.restbl td.m3,table.restbl th.m3{text-align:right}
   table.restbl td.rate,table.restbl th.rate{text-align:right}
-  .cbcell{width:34px;text-align:center}
+  .cbcell{text-align:center}
+  col.c-chk{width:7%} col.c-tgl{width:12%} col.c-sj{width:17%} col.c-dist{width:20%}
+  col.c-exp{width:9%} col.c-truck{width:12%} col.c-cont{width:13%} col.c-m3{width:9%} col.c-rate{width:15%}
   .empty{text-align:center;color:var(--muted);padding:34px 12px}
   .config{font-size:12px;color:var(--muted)}
   .config summary{cursor:pointer;font-weight:600;color:var(--accent)}
@@ -370,21 +373,21 @@ function render(){
     const on=SEL.has(r.id);
     return `<tr class="rrow ${on?'sel':''}" data-id="${r.id}">
       <td class="cbcell"><input type="checkbox" class="chk" ${on?'checked':''}></td>
-      <td class="sj">${r.sj}</td>
+      <td>${r.tgl||'—'}</td>
+      <td class="sj">${r.sj}<br><span class="so">${r.so||'—'}</span></td>
       <td>${r.dist||'—'}</td>
       <td>${r.exp||'—'}</td>
       <td>${r.nopol||'—'}</td>
       <td>${r.cont||'—'}</td>
-      <td>${r.tgl||'—'}</td>
-      <td>${r.so||'—'}</td>
       <td class="m3">${r.m3>0?r.m3.toLocaleString('id-ID'):'—'}</td>
       <td class="rate ${r.rate>0?'':'none'}">${r.rate>0?fmtRp(r.rate):'(ikut)'}</td>
     </tr>`;
   }).join('');
   html+=`<div class="tblwrap"><table class="restbl">
+    <colgroup><col class="c-chk"><col class="c-tgl"><col class="c-sj"><col class="c-dist"><col class="c-exp"><col class="c-truck"><col class="c-cont"><col class="c-m3"><col class="c-rate"></colgroup>
     <thead><tr>
       <th class="cbcell"><input type="checkbox" id="chkAllHead"></th>
-      <th>No Surat Jalan</th><th>Distributor</th><th>Ekspedisi</th><th>No Truck</th><th>No Kontainer</th><th>Tgl Kirim</th><th>No SO</th><th class="m3">m³</th><th class="rate">Harga</th>
+      <th>Tgl</th><th>No Surat Jalan / SO</th><th>Distributor</th><th>Eksp</th><th>No Truck</th><th>No Kontainer</th><th class="m3">m³</th><th class="rate">Harga</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
