@@ -34,16 +34,19 @@
   .total{background:var(--accent-bg);border:1px solid #cfe2e8;border-radius:10px;padding:11px 13px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
   .total b{color:var(--accent);font-size:19px}
   .total span{font-size:12.5px;color:var(--muted)}
-  .card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:12px;margin-bottom:9px;display:flex;gap:10px;align-items:flex-start}
-  .card.sel{border-left-color:var(--ok);background:var(--ok-bg)}
-  .chk{width:22px;height:22px;flex:none;margin-top:2px;accent-color:var(--ok)}
-  .card-body{flex:1;min-width:0}
-  .sj{font-weight:800;font-size:16px;letter-spacing:.3px}
-  .dist{font-size:13px;color:var(--ink);margin:3px 0 8px}
-  .meta{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:13px}
-  .meta div b{display:block;font-size:10.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+  .chk{width:20px;height:20px;flex:none;accent-color:var(--ok)}
   .rate{color:var(--gold);font-weight:700}
   .rate.none{color:var(--muted);font-weight:400}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:12px}
+  table.restbl{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--card);min-width:760px}
+  table.restbl th,table.restbl td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  table.restbl th{background:#efe9dd;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);position:sticky;top:0}
+  table.restbl tr.rrow{cursor:pointer}
+  table.restbl tr.sel td{background:var(--ok-bg)}
+  table.restbl td.sj{font-weight:700}
+  table.restbl td.m3,table.restbl th.m3{text-align:right}
+  table.restbl td.rate,table.restbl th.rate{text-align:right}
+  .cbcell{width:34px;text-align:center}
   .empty{text-align:center;color:var(--muted);padding:34px 12px}
   .config{font-size:12px;color:var(--muted)}
   .config summary{cursor:pointer;font-weight:600;color:var(--accent)}
@@ -363,37 +366,45 @@ function render(){
     <button class="btn btn-sec" id="unAll">Hapus Centang</button>
   </div>`;
   if(total>0)html+=`<div class="total"><span>Total harga hasil (per kontainer)</span><b>${fmtRp(total)}</b></div>`;
-  html+=VIEW.map(r=>{
+  const rows=VIEW.map(r=>{
     const on=SEL.has(r.id);
-    return `<div class="card ${on?'sel':''}" data-id="${r.id}">
-      <input type="checkbox" class="chk" ${on?'checked':''}>
-      <div class="card-body">
-        <div class="sj">${r.sj}</div>
-        <div class="dist">${r.dist||'—'}</div>
-        <div class="meta">
-          <div><b>Ekspedisi</b>${r.exp||'—'}</div>
-          <div><b>No Truck</b>${r.nopol||'—'}</div>
-          <div><b>Tgl Kirim</b>${r.tgl||'—'}</div>
-          <div><b>No SO</b>${r.so||'—'}</div>
-          <div><b>Kubikasi</b>${r.m3>0?r.m3.toLocaleString('id-ID')+' m³':'—'}</div>
-          <div><b>Harga</b><span class="rate ${r.rate>0?'':'none'}">${r.rate>0?fmtRp(r.rate):'(ikut kontainer)'}</span></div>
-        </div>
-      </div>
-    </div>`;
+    return `<tr class="rrow ${on?'sel':''}" data-id="${r.id}">
+      <td class="cbcell"><input type="checkbox" class="chk" ${on?'checked':''}></td>
+      <td class="sj">${r.sj}</td>
+      <td>${r.dist||'—'}</td>
+      <td>${r.exp||'—'}</td>
+      <td>${r.nopol||'—'}</td>
+      <td>${r.cont||'—'}</td>
+      <td>${r.tgl||'—'}</td>
+      <td>${r.so||'—'}</td>
+      <td class="m3">${r.m3>0?r.m3.toLocaleString('id-ID'):'—'}</td>
+      <td class="rate ${r.rate>0?'':'none'}">${r.rate>0?fmtRp(r.rate):'(ikut)'}</td>
+    </tr>`;
   }).join('');
+  html+=`<div class="tblwrap"><table class="restbl">
+    <thead><tr>
+      <th class="cbcell"><input type="checkbox" id="chkAllHead"></th>
+      <th>No Surat Jalan</th><th>Distributor</th><th>Ekspedisi</th><th>No Truck</th><th>No Kontainer</th><th>Tgl Kirim</th><th>No SO</th><th class="m3">m³</th><th class="rate">Harga</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
   box.innerHTML=html;
 
-  box.querySelectorAll('.card').forEach(card=>{
-    const id=card.dataset.id;
-    const cb=card.querySelector('.chk');
+  box.querySelectorAll('.rrow').forEach(row=>{
+    const id=row.dataset.id;
+    const cb=row.querySelector('.chk');
     const toggle=()=>{
-      if(cb.checked){SEL.set(id,VIEW.find(r=>r.id===id));card.classList.add('sel');}
-      else{SEL.delete(id);card.classList.remove('sel');}
+      if(cb.checked){SEL.set(id,VIEW.find(r=>r.id===id));row.classList.add('sel');}
+      else{SEL.delete(id);row.classList.remove('sel');}
       updateSelbar();
     };
     cb.addEventListener('change',toggle);
-    card.addEventListener('click',e=>{if(e.target!==cb){cb.checked=!cb.checked;toggle();}});
+    row.addEventListener('click',e=>{if(e.target!==cb){cb.checked=!cb.checked;toggle();}});
   });
+  const head=$('chkAllHead');
+  if(head){head.checked=VIEW.every(r=>SEL.has(r.id))&&VIEW.length>0;
+    head.onclick=()=>{ if(head.checked)VIEW.forEach(r=>SEL.set(r.id,r)); else VIEW.forEach(r=>SEL.delete(r.id)); render(); };
+  }
   $('selAll').onclick=()=>{VIEW.forEach(r=>SEL.set(r.id,r));render();};
   $('unAll').onclick=()=>{VIEW.forEach(r=>SEL.delete(r.id));render();};
   updateSelbar();
