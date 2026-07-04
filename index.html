@@ -37,8 +37,8 @@
   .chk{width:17px;height:17px;flex:none;accent-color:var(--ok)}
   .rate{color:var(--gold);font-weight:700}
   .rate.none{color:var(--muted);font-weight:400}
-  .tblwrap{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px}
-  table.restbl{width:100%;border-collapse:collapse;background:var(--card);table-layout:fixed;font-size:11px}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:12px}
+  table.restbl{width:100%;border-collapse:collapse;background:var(--card);table-layout:fixed;font-size:11px;min-width:860px}
   table.restbl th,table.restbl td{padding:5px 5px;text-align:left;border-bottom:1px solid var(--line);word-break:break-word;overflow-wrap:anywhere;vertical-align:top}
   table.restbl th{background:#efe9dd;font-size:9px;text-transform:uppercase;letter-spacing:.2px;color:var(--muted)}
   table.restbl tr.rrow{cursor:pointer}
@@ -47,9 +47,13 @@
   table.restbl td.sj .so{font-weight:400;color:var(--muted)}
   table.restbl td.m3,table.restbl th.m3{text-align:right}
   table.restbl td.rate,table.restbl th.rate{text-align:right}
+  table.restbl td.editcell{padding:3px}
+  table.restbl td.editcell input{width:100%;padding:5px;border:1px solid var(--line);border-radius:6px;font-size:11px;font-family:inherit}
+  table.restbl td.muted2{color:var(--line);text-align:center}
   .cbcell{text-align:center}
-  col.c-chk{width:7%} col.c-tgl{width:12%} col.c-sj{width:17%} col.c-dist{width:20%}
-  col.c-exp{width:9%} col.c-truck{width:12%} col.c-cont{width:13%} col.c-m3{width:9%} col.c-rate{width:15%}
+  col.c-chk{width:34px} col.c-tgl{width:60px} col.c-sj{width:120px} col.c-dist{width:130px}
+  col.c-exp{width:50px} col.c-truck{width:80px} col.c-cont{width:90px} col.c-m3{width:44px} col.c-rate{width:90px}
+  col.c-hm{width:90px} col.c-ket{width:110px}
   .empty{text-align:center;color:var(--muted);padding:34px 12px}
   .config{font-size:12px;color:var(--muted)}
   .config summary{cursor:pointer;font-weight:600;color:var(--accent)}
@@ -160,6 +164,7 @@
 const $=id=>document.getElementById(id);
 let ROWS=[], VIEW=[];
 const SEL=new Map();
+const MANUAL={}; // {contKey:{harga,ket}}
 
 function fmtRp(n){return n>0?'Rp '+Math.round(n).toLocaleString('id-ID'):null;}
 function toNum(v){
@@ -369,8 +374,15 @@ function render(){
     <button class="btn btn-sec" id="unAll">Hapus Centang</button>
   </div>`;
   if(total>0)html+=`<div class="total"><span>Total harga hasil (per kontainer)</span><b>${fmtRp(total)}</b></div>`;
+  const seenCont=new Set();
   const rows=VIEW.map(r=>{
     const on=SEL.has(r.id);
+    const firstOfCont=!seenCont.has(r.contKey); if(firstOfCont)seenCont.add(r.contKey);
+    const mv=MANUAL[r.contKey]||{harga:'',ket:''};
+    const inputCells = firstOfCont
+      ? `<td class="editcell"><input class="in-harga" data-k="${r.contKey}" inputmode="numeric" value="${mv.harga||''}" placeholder="—"></td>
+         <td class="editcell"><input class="in-ket" data-k="${r.contKey}" value="${(mv.ket||'').replace(/"/g,'&quot;')}" placeholder="—"></td>`
+      : `<td class="editcell muted2">˝</td><td class="editcell muted2">˝</td>`;
     return `<tr class="rrow ${on?'sel':''}" data-id="${r.id}">
       <td class="cbcell"><input type="checkbox" class="chk" ${on?'checked':''}></td>
       <td>${r.tgl||'—'}</td>
@@ -381,13 +393,14 @@ function render(){
       <td>${r.cont||'—'}</td>
       <td class="m3">${r.m3>0?r.m3.toLocaleString('id-ID'):'—'}</td>
       <td class="rate ${r.rate>0?'':'none'}">${r.rate>0?fmtRp(r.rate):'(ikut)'}</td>
+      ${inputCells}
     </tr>`;
   }).join('');
   html+=`<div class="tblwrap"><table class="restbl">
-    <colgroup><col class="c-chk"><col class="c-tgl"><col class="c-sj"><col class="c-dist"><col class="c-exp"><col class="c-truck"><col class="c-cont"><col class="c-m3"><col class="c-rate"></colgroup>
+    <colgroup><col class="c-chk"><col class="c-tgl"><col class="c-sj"><col class="c-dist"><col class="c-exp"><col class="c-truck"><col class="c-cont"><col class="c-m3"><col class="c-rate"><col class="c-hm"><col class="c-ket"></colgroup>
     <thead><tr>
       <th class="cbcell"><input type="checkbox" id="chkAllHead"></th>
-      <th>Tgl</th><th>No Surat Jalan / SO</th><th>Distributor</th><th>Eksp</th><th>No Truck</th><th>No Kontainer</th><th class="m3">m³</th><th class="rate">Harga</th>
+      <th>Tgl</th><th>No Surat Jalan / SO</th><th>Distributor</th><th>Eksp</th><th>No Truck</th><th>No Kontainer</th><th class="m3">m³</th><th class="rate">Harga</th><th>Harga Manual</th><th>Keterangan</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
@@ -402,7 +415,17 @@ function render(){
       updateSelbar();
     };
     cb.addEventListener('change',toggle);
-    row.addEventListener('click',e=>{if(e.target!==cb){cb.checked=!cb.checked;toggle();}});
+    row.addEventListener('click',e=>{
+      const t=e.target;
+      if(t!==cb && !t.classList.contains('in-harga') && !t.classList.contains('in-ket')){cb.checked=!cb.checked;toggle();}
+    });
+  });
+  // simpan input harga manual & keterangan ke MANUAL (per kontainer)
+  box.querySelectorAll('.in-harga').forEach(inp=>{
+    inp.addEventListener('input',()=>{ const k=inp.dataset.k; MANUAL[k]=MANUAL[k]||{}; MANUAL[k].harga=inp.value; });
+  });
+  box.querySelectorAll('.in-ket').forEach(inp=>{
+    inp.addEventListener('input',()=>{ const k=inp.dataset.k; MANUAL[k]=MANUAL[k]||{}; MANUAL[k].ket=inp.value; });
   });
   const head=$('chkAllHead');
   if(head){head.checked=VIEW.every(r=>SEL.has(r.id))&&VIEW.length>0;
@@ -430,8 +453,17 @@ function buildRekap(){
     if(r.sj && !gg.seenSj.has(r.sj)){ gg.seenSj.add(r.sj); gg.items.push({sj:r.sj,so:r.so,m3:r.m3||0}); }
     if(!gg.dist && r.dist) gg.dist=r.dist;
   });
-  const list=Object.values(groups).filter(g=>g.rate>0).map(g=>{delete g.seenSj;return g;});
-  const total=list.reduce((s,g)=>s+g.rate,0);
+  const list=Object.values(groups).filter(g=>g.rate>0).map(g=>{
+    delete g.seenSj;
+    const k=g.nopol+'|'+g.exp+'|'+g.tgl+'|'+g.cont;
+    const mv=MANUAL[k]||{};
+    const hm=toNum(mv.harga);
+    g.hargaManual = hm>0?hm:null;
+    g.keterangan = (mv.ket||'').trim();
+    g.hargaFinal = hm>0?hm:g.rate;
+    return g;
+  });
+  const total=list.reduce((s,g)=>s+(g.hargaFinal||g.rate),0);
   const totalM3=list.reduce((s,g)=>s+g.items.reduce((a,it)=>a+(it.m3||0),0),0);
   const skipped=Object.values(groups).length-list.length;
   const noInv=$('noInv').value.trim();
@@ -447,27 +479,33 @@ function buildRekap(){
 const fmtM3=n=>n>0?n.toLocaleString('id-ID',{maximumFractionDigits:2}):'—';
 
 function buildPrint(rekap){
-  const {list,total,totalM3,skipped,noInv,periode}=rekap;
+  const {list,totalM3,skipped,noInv,periode}=rekap;
   const today=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+  let totalFinal=0;
   const body=list.map((g,i)=>{
     const subM3=g.items.reduce((a,it)=>a+(it.m3||0),0);
-    const pairs=g.items.map(it=>
-      `<div class="pair"><span class="a">${it.sj||'—'}</span><span class="b">${it.so||'—'}</span><span class="c">${fmtM3(it.m3)}</span></div>`
-    ).join('');
+    const spa=g.items.map(it=>it.sj).filter(Boolean).join(', ');
+    const so=[...new Set(g.items.map(it=>it.so).filter(Boolean))].join(', ');
+    const hFinal=(g.hargaFinal!=null?g.hargaFinal:g.rate);
+    totalFinal+=hFinal;
+    const adaManual=(g.hargaManual!=null && g.hargaManual>0 && g.hargaManual!==g.rate);
     return `<tr>
       <td class="c">${i+1}</td>
       <td>${g.dist||'—'}</td>
       <td>${g.exp||'—'}</td>
       <td>${g.nopol||'—'}<br><small>${g.cont||''}</small></td>
       <td>${g.tgl||'—'}</td>
-      <td class="pairs"><div class="pair phead"><span class="a">No Surat Jalan</span><span class="b">No SO</span><span class="c">m³</span></div>${pairs}<div class="pair psub"><span class="a"></span><span class="b" style="text-align:right">Sub m³</span><span class="c">${fmtM3(subM3)}</span></div></td>
+      <td>${spa||'—'}</td>
+      <td>${so||'—'}</td>
+      <td class="r">${fmtM3(subM3)}</td>
       <td class="r">${fmtRp(g.rate)}</td>
+      <td class="r">${adaManual?fmtRp(g.hargaManual):''}</td>
+      <td>${g.keterangan||''}</td>
     </tr>`;
   }).join('');
 
   $('printArea').innerHTML=`
     <div class="p-head">
-      <h2>REKAP SURAT JALAN</h2>
       <p>PT. UNIFAM</p>
     </div>
     <div class="p-meta">
@@ -480,10 +518,10 @@ function buildPrint(rekap){
     </div>
     <table>
       <thead><tr>
-        <th class="c" style="width:32px">No</th><th style="width:200px">Distributor</th><th style="width:70px">Ekspedisi</th><th style="width:130px">No Truck / Kontainer</th><th style="width:80px">Tgl Kirim</th><th>No Surat Jalan / No SO / m³</th><th class="r" style="width:110px">Harga</th>
+        <th class="c" style="width:26px">No</th><th style="width:150px">Distributor</th><th style="width:52px">Eksp</th><th style="width:110px">No Truck / Kontainer</th><th style="width:62px">Tgl</th><th>No Surat Jalan</th><th>No SO</th><th class="r" style="width:48px">m³</th><th class="r" style="width:92px">Harga</th><th class="r" style="width:92px">Harga Manual</th><th style="width:110px">Keterangan</th>
       </tr></thead>
       <tbody>${body}</tbody>
-      <tfoot><tr><td colspan="5" class="r">TOTAL</td><td class="r">Total m³: ${fmtM3(totalM3)}</td><td class="r">${fmtRp(total)||'Rp 0'}</td></tr></tfoot>
+      <tfoot><tr><td colspan="7" class="r">TOTAL</td><td class="r">${fmtM3(totalM3)}</td><td class="r" colspan="2">${fmtRp(totalFinal)||'Rp 0'}</td><td></td></tr></tfoot>
     </table>
     ${skipped>0?`<p style="font-size:11px;color:#666;margin-top:6px">*) ${skipped} truck terpilih tidak dicetak karena belum ada harga.</p>`:''}
     <div class="p-sign">
@@ -497,7 +535,6 @@ function kirimKeSheet(rekap){
   const url=($('scriptUrl').value||'').trim();
   if(!url) return false;
   try{ localStorage.setItem('script_url_unifam', url); }catch(e){}
-  // fire-and-forget (no-cors: respons tak terbaca)
   fetch(url,{
     method:'POST',
     mode:'no-cors',
@@ -515,19 +552,17 @@ $('printSel').onclick=()=>{
   if(!SEL.size)return;
   const rekap=buildRekap();
   if(!rekap.list.length){alert('Tidak ada kontainer dengan harga untuk disimpan/dicetak.');return;}
-  // 1) simpan ke Sheet
   const terkirim=kirimKeSheet(rekap);
   if(!terkirim){
     if(!confirm('URL Apps Script belum diisi, jadi rekap TIDAK tersimpan ke Google Sheet.\nLanjut cetak saja?')) return;
   }
-  // 2) cetak
   buildPrint(rekap);
   setTimeout(()=>{
+    const judulAsli=document.title;
+    document.title=' ';
     window.print();
-    if(terkirim){
-      const jml=rekap.list.reduce((s,g)=>s+g.items.length,0);
-      setTimeout(()=>{ SEL.clear(); render(); updateSelbar(); },300);
-    }
+    document.title=judulAsli;
+    if(terkirim){ setTimeout(()=>{ SEL.clear(); render(); updateSelbar(); },300); }
   },150);
 };
 // pulihkan URL script tersimpan
