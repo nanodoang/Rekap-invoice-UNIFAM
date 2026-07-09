@@ -37,8 +37,8 @@
   .chk{width:17px;height:17px;flex:none;accent-color:var(--ok)}
   .rate{color:var(--gold);font-weight:700}
   .rate.none{color:var(--muted);font-weight:400}
-  .tblwrap{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px}
-  table.restbl{width:100%;border-collapse:collapse;background:var(--card);table-layout:fixed;font-size:11px}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:12px}
+  table.restbl{width:100%;border-collapse:collapse;background:var(--card);table-layout:fixed;font-size:11px;min-width:880px}
   table.restbl th,table.restbl td{padding:5px 5px;text-align:left;border-bottom:1px solid var(--line);word-break:break-word;overflow-wrap:anywhere;vertical-align:top}
   table.restbl th{background:#efe9dd;font-size:9px;text-transform:uppercase;letter-spacing:.2px;color:var(--muted)}
   table.restbl tr.rrow{cursor:pointer}
@@ -47,20 +47,13 @@
   table.restbl td.sj .so{font-weight:400;color:var(--muted)}
   table.restbl td.m3,table.restbl th.m3{text-align:right}
   table.restbl td.rate,table.restbl th.rate{text-align:right}
+  table.restbl td.editcell{padding:3px}
+  table.restbl td.editcell input{width:100%;padding:5px;border:1px solid var(--line);border-radius:6px;font-size:11px;font-family:inherit}
+  table.restbl td.muted2{color:var(--line);text-align:center}
   .cbcell{text-align:center}
-  col.c-chk{width:7%} col.c-tgl{width:12%} col.c-sj{width:17%} col.c-dist{width:20%}
-  col.c-exp{width:9%} col.c-truck{width:12%} col.c-cont{width:13%} col.c-m3{width:9%} col.c-rate{width:15%}
-  .editpanel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
-  .editpanel h4{margin:0 0 4px;font-size:13px;color:var(--accent)}
-  .editpanel .sub{font-size:11.5px;color:var(--muted);margin-bottom:10px}
-  .ei{border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:8px;background:var(--paper)}
-  .ei-h{font-weight:700;font-size:13px}
-  .ei-s{font-size:11px;color:var(--muted);margin:2px 0 8px}
-  .ei-row{display:flex;gap:8px;flex-wrap:wrap}
-  .ei-f{flex:1;min-width:120px}
-  .ei-f label{display:block;font-size:10.5px;color:var(--muted);font-weight:600;margin-bottom:3px}
-  .ei-f input{width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit}
-  .ei-f .asli{font-size:10.5px;color:var(--muted);margin-top:2px}
+  col.c-chk{width:34px} col.c-tgl{width:58px} col.c-sj{width:110px} col.c-dist{width:120px}
+  col.c-exp{width:48px} col.c-truck{width:76px} col.c-cont{width:82px} col.c-m3{width:42px} col.c-rate{width:84px}
+  col.c-hm{width:92px} col.c-ket{width:96px}
   .empty{text-align:center;color:var(--muted);padding:34px 12px}
   .config{font-size:12px;color:var(--muted)}
   .config summary{cursor:pointer;font-weight:600;color:var(--accent)}
@@ -381,8 +374,16 @@ function render(){
     <button class="btn btn-sec" id="unAll">Hapus Centang</button>
   </div>`;
   if(total>0)html+=`<div class="total"><span>Total harga hasil (per kontainer)</span><b>${fmtRp(total)}</b></div>`;
+  const seenCont=new Set();
   const rows=VIEW.map(r=>{
     const on=SEL.has(r.id);
+    const firstOfCont=!seenCont.has(r.contKey); if(firstOfCont)seenCont.add(r.contKey);
+    const mv=MANUAL[r.contKey]||{harga:'',ket:''};
+    const hVal = mv.harga ? 'Rp '+toNum(mv.harga).toLocaleString('id-ID') : '';
+    const inputCells = firstOfCont
+      ? `<td class="editcell"><input class="in-harga" data-k="${r.contKey}" inputmode="numeric" value="${hVal}" placeholder="—"></td>
+         <td class="editcell"><input class="in-ket" data-k="${r.contKey}" value="${(mv.ket||'').replace(/"/g,'&quot;')}" placeholder="—"></td>`
+      : `<td class="editcell muted2">〃</td><td class="editcell muted2">〃</td>`;
     return `<tr class="rrow ${on?'sel':''}" data-id="${r.id}">
       <td class="cbcell"><input type="checkbox" class="chk" ${on?'checked':''}></td>
       <td>${r.tgl||'—'}</td>
@@ -393,17 +394,17 @@ function render(){
       <td>${r.cont||'—'}</td>
       <td class="m3">${r.m3>0?r.m3.toLocaleString('id-ID'):'—'}</td>
       <td class="rate ${r.rate>0?'':'none'}">${r.rate>0?fmtRp(r.rate):'(ikut)'}</td>
+      ${inputCells}
     </tr>`;
   }).join('');
   html+=`<div class="tblwrap"><table class="restbl">
-    <colgroup><col class="c-chk"><col class="c-tgl"><col class="c-sj"><col class="c-dist"><col class="c-exp"><col class="c-truck"><col class="c-cont"><col class="c-m3"><col class="c-rate"></colgroup>
+    <colgroup><col class="c-chk"><col class="c-tgl"><col class="c-sj"><col class="c-dist"><col class="c-exp"><col class="c-truck"><col class="c-cont"><col class="c-m3"><col class="c-rate"><col class="c-hm"><col class="c-ket"></colgroup>
     <thead><tr>
       <th class="cbcell"><input type="checkbox" id="chkAllHead"></th>
-      <th>Tgl</th><th>No Surat Jalan / SO</th><th>Distributor</th><th>Eksp</th><th>No Truck</th><th>No Kontainer</th><th class="m3">m³</th><th class="rate">Harga</th>
+      <th>Tgl</th><th>No Surat Jalan / SO</th><th>Distributor</th><th>Eksp</th><th>No Truck</th><th>No Kontainer</th><th class="m3">m³</th><th class="rate">Harga</th><th>Harga Manual</th><th>Ket</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
-  html+=`<div id="editWrap"></div>`;
   box.innerHTML=html;
 
   box.querySelectorAll('.rrow').forEach(row=>{
@@ -412,10 +413,25 @@ function render(){
     const toggle=()=>{
       if(cb.checked){SEL.set(id,VIEW.find(r=>r.id===id));row.classList.add('sel');}
       else{SEL.delete(id);row.classList.remove('sel');}
-      updateSelbar(); renderEditPanel();
+      updateSelbar();
     };
     cb.addEventListener('change',toggle);
-    row.addEventListener('click',e=>{if(e.target!==cb){cb.checked=!cb.checked;toggle();}});
+    row.addEventListener('click',e=>{
+      const t=e.target;
+      if(t!==cb && !t.classList.contains('in-harga') && !t.classList.contains('in-ket')){cb.checked=!cb.checked;toggle();}
+    });
+  });
+  // harga manual: format Rp otomatis, simpan angka murni ke MANUAL[contKey]
+  box.querySelectorAll('.in-harga').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      const angka=toNum(inp.value);
+      const k=inp.dataset.k; MANUAL[k]=MANUAL[k]||{};
+      MANUAL[k].harga = angka>0 ? String(angka) : '';
+      inp.value = angka>0 ? 'Rp '+angka.toLocaleString('id-ID') : '';
+    });
+  });
+  box.querySelectorAll('.in-ket').forEach(inp=>{
+    inp.addEventListener('input',()=>{ const k=inp.dataset.k; MANUAL[k]=MANUAL[k]||{}; MANUAL[k].ket=inp.value; });
   });
   const head=$('chkAllHead');
   if(head){head.checked=VIEW.every(r=>SEL.has(r.id))&&VIEW.length>0;
@@ -424,52 +440,6 @@ function render(){
   $('selAll').onclick=()=>{VIEW.forEach(r=>SEL.set(r.id,r));render();};
   $('unAll').onclick=()=>{VIEW.forEach(r=>SEL.delete(r.id));render();};
   updateSelbar();
-  renderEditPanel();
-}
-
-// panel edit harga manual & keterangan — hanya utk kontainer tercentang
-function renderEditPanel(){
-  const wrap=$('editWrap'); if(!wrap)return;
-  // kumpulkan kontainer unik dari yg dicentang
-  const seen=new Set(); const conts=[];
-  [...SEL.values()].forEach(r=>{
-    if(!(r.rate>0))return;
-    if(!seen.has(r.contKey)){ seen.add(r.contKey); conts.push(r); }
-  });
-  if(!conts.length){ wrap.innerHTML=''; return; }
-  wrap.innerHTML=`<div class="editpanel">
-    <h4>Harga Manual & Keterangan</h4>
-    <div class="sub">Isi hanya bila harga tidak sesuai. Kosongkan = pakai harga sistem.</div>
-    ${conts.map(r=>{
-      const mv=MANUAL[r.contKey]||{harga:'',ket:''};
-      return `<div class="ei">
-        <div class="ei-h">${r.dist||'—'}</div>
-        <div class="ei-s">${r.exp||''} • ${r.nopol||''} • ${r.cont||''} • ${r.tgl||''}</div>
-        <div class="ei-row">
-          <div class="ei-f">
-            <label>Harga Manual</label>
-            <input class="in-harga" data-k="${r.contKey}" inputmode="numeric" value="${mv.harga?('Rp '+toNum(mv.harga).toLocaleString('id-ID')):''}" placeholder="mis. Rp 8.500.000">
-            <div class="asli">Harga sistem: ${fmtRp(r.rate)}</div>
-          </div>
-          <div class="ei-f">
-            <label>Keterangan</label>
-            <input class="in-ket" data-k="${r.contKey}" value="${(mv.ket||'').replace(/"/g,'&quot;')}" placeholder="catatan (opsional)">
-          </div>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>`;
-  wrap.querySelectorAll('.in-harga').forEach(inp=>{
-    inp.addEventListener('input',()=>{
-      // ambil angka murni, simpan, lalu tampilkan berformat Rp
-      const angka=toNum(inp.value);
-      MANUAL[inp.dataset.k]=MANUAL[inp.dataset.k]||{};
-      MANUAL[inp.dataset.k].harga = angka>0 ? String(angka) : '';
-      const pos=inp.selectionStart;
-      inp.value = angka>0 ? 'Rp '+angka.toLocaleString('id-ID') : '';
-    });
-  });
-  wrap.querySelectorAll('.in-ket').forEach(inp=>inp.addEventListener('input',()=>{const k=inp.dataset.k;MANUAL[k]=MANUAL[k]||{};MANUAL[k].ket=inp.value;}));
 }
 
 function updateSelbar(){
