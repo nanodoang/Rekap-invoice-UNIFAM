@@ -421,13 +421,20 @@ function render(){
       if(t!==cb && !t.classList.contains('in-harga') && !t.classList.contains('in-ket')){cb.checked=!cb.checked;toggle();}
     });
   });
-  // harga manual: format Rp otomatis, simpan angka murni ke MANUAL[contKey]
+  // harga manual: simpan angka murni saat ketik, format Rp saat selesai (blur)
   box.querySelectorAll('.in-harga').forEach(inp=>{
     inp.addEventListener('input',()=>{
-      const angka=toNum(inp.value);
       const k=inp.dataset.k; MANUAL[k]=MANUAL[k]||{};
+      const angka=toNum(inp.value);
       MANUAL[k].harga = angka>0 ? String(angka) : '';
-      inp.value = angka>0 ? 'Rp '+angka.toLocaleString('id-ID') : '';
+    });
+    inp.addEventListener('focus',()=>{
+      const k=inp.dataset.k; const v=(MANUAL[k]||{}).harga;
+      inp.value = v ? String(v) : '';   // saat fokus: tampil angka polos utk diedit
+    });
+    inp.addEventListener('blur',()=>{
+      const k=inp.dataset.k; const v=(MANUAL[k]||{}).harga;
+      inp.value = v && +v>0 ? 'Rp '+(+v).toLocaleString('id-ID') : '';  // saat selesai: format Rp
     });
   });
   box.querySelectorAll('.in-ket').forEach(inp=>{
@@ -453,7 +460,7 @@ function buildRekap(){
   const groups={};
   rows.forEach(r=>{
     const k=r.contKey||(r.nopol+'|'+r.exp+'|'+r.tgl+'|'+r.cont);
-    if(!groups[k]) groups[k]={nopol:r.nopol,exp:r.exp,tgl:r.tgl,cont:r.cont,dist:r.dist,rate:r.rate||0,items:[],seenSj:new Set()};
+    if(!groups[k]) groups[k]={contKey:k,nopol:r.nopol,exp:r.exp,tgl:r.tgl,cont:r.cont,dist:r.dist,rate:r.rate||0,items:[],seenSj:new Set()};
     const gg=groups[k];
     if(r.rate>0) gg.rate=r.rate;
     if(r.sj && !gg.seenSj.has(r.sj)){ gg.seenSj.add(r.sj); gg.items.push({sj:r.sj,so:r.so,m3:r.m3||0}); }
@@ -461,8 +468,7 @@ function buildRekap(){
   });
   const list=Object.values(groups).filter(g=>g.rate>0).map(g=>{
     delete g.seenSj;
-    const k=g.nopol+'|'+g.exp+'|'+g.tgl+'|'+g.cont;
-    const mv=MANUAL[k]||{};
+    const mv=MANUAL[g.contKey]||{};
     const hm=toNum(mv.harga);
     g.hargaManual = hm>0?hm:null;
     g.keterangan = (mv.ket||'').trim();
@@ -494,7 +500,7 @@ function buildPrint(rekap){
     const so=[...new Set(g.items.map(it=>it.so).filter(Boolean))].join(', ');
     const hFinal=(g.hargaFinal!=null?g.hargaFinal:g.rate);
     totalFinal+=hFinal;
-    const adaManual=(g.hargaManual!=null && g.hargaManual>0 && g.hargaManual!==g.rate);
+    const adaManual=(g.hargaManual!=null && g.hargaManual>0);
     return `<tr>
       <td class="c">${i+1}</td>
       <td>${g.dist||'—'}</td>
