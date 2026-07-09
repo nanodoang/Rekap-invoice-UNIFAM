@@ -380,9 +380,10 @@ function render(){
     const firstOfCont=!seenCont.has(r.contKey); if(firstOfCont)seenCont.add(r.contKey);
     const mv=MANUAL[r.contKey]||{harga:'',ket:''};
     const hVal = mv.harga ? 'Rp '+toNum(mv.harga).toLocaleString('id-ID') : '';
+    const kEnc = encodeURIComponent(r.contKey);
     const inputCells = firstOfCont
-      ? `<td class="editcell"><input class="in-harga" data-k="${r.contKey}" inputmode="numeric" value="${hVal}" placeholder="—"></td>
-         <td class="editcell"><input class="in-ket" data-k="${r.contKey}" value="${(mv.ket||'').replace(/"/g,'&quot;')}" placeholder="—"></td>`
+      ? `<td class="editcell"><input class="in-harga" data-k="${kEnc}" inputmode="numeric" value="${hVal}" placeholder="—"></td>
+         <td class="editcell"><input class="in-ket" data-k="${kEnc}" value="${(mv.ket||'').replace(/"/g,'&quot;')}" placeholder="—"></td>`
       : `<td class="editcell muted2">〃</td><td class="editcell muted2">〃</td>`;
     return `<tr class="rrow ${on?'sel':''}" data-id="${r.id}">
       <td class="cbcell"><input type="checkbox" class="chk" ${on?'checked':''}></td>
@@ -423,22 +424,24 @@ function render(){
   });
   // harga manual: simpan angka murni saat ketik, format Rp saat selesai (blur)
   box.querySelectorAll('.in-harga').forEach(inp=>{
+    const k=decodeURIComponent(inp.dataset.k);
     inp.addEventListener('input',()=>{
-      const k=inp.dataset.k; MANUAL[k]=MANUAL[k]||{};
+      MANUAL[k]=MANUAL[k]||{};
       const angka=toNum(inp.value);
       MANUAL[k].harga = angka>0 ? String(angka) : '';
     });
     inp.addEventListener('focus',()=>{
-      const k=inp.dataset.k; const v=(MANUAL[k]||{}).harga;
-      inp.value = v ? String(v) : '';   // saat fokus: tampil angka polos utk diedit
+      const v=(MANUAL[k]||{}).harga;
+      inp.value = v ? String(v) : '';
     });
     inp.addEventListener('blur',()=>{
-      const k=inp.dataset.k; const v=(MANUAL[k]||{}).harga;
-      inp.value = v && +v>0 ? 'Rp '+(+v).toLocaleString('id-ID') : '';  // saat selesai: format Rp
+      const v=(MANUAL[k]||{}).harga;
+      inp.value = v && +v>0 ? 'Rp '+(+v).toLocaleString('id-ID') : '';
     });
   });
   box.querySelectorAll('.in-ket').forEach(inp=>{
-    inp.addEventListener('input',()=>{ const k=inp.dataset.k; MANUAL[k]=MANUAL[k]||{}; MANUAL[k].ket=inp.value; });
+    const k=decodeURIComponent(inp.dataset.k);
+    inp.addEventListener('input',()=>{ MANUAL[k]=MANUAL[k]||{}; MANUAL[k].ket=inp.value; });
   });
   const head=$('chkAllHead');
   if(head){head.checked=VIEW.every(r=>SEL.has(r.id))&&VIEW.length>0;
