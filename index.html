@@ -38,7 +38,7 @@
   .rate{color:var(--gold);font-weight:700}
   .rate.none{color:var(--muted);font-weight:400}
   .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:12px}
-  table.restbl{width:100%;border-collapse:collapse;background:var(--card);table-layout:fixed;font-size:11px;min-width:880px}
+  table.restbl{width:100%;border-collapse:collapse;background:var(--card);table-layout:fixed;font-size:11px;min-width:980px}
   table.restbl th,table.restbl td{padding:5px 5px;text-align:left;border-bottom:1px solid var(--line);word-break:break-word;overflow-wrap:anywhere;vertical-align:top}
   table.restbl th{background:#efe9dd;font-size:9px;text-transform:uppercase;letter-spacing:.2px;color:var(--muted)}
   table.restbl tr.rrow{cursor:pointer}
@@ -53,7 +53,7 @@
   .cbcell{text-align:center}
   col.c-chk{width:34px} col.c-tgl{width:58px} col.c-sj{width:110px} col.c-dist{width:120px}
   col.c-exp{width:48px} col.c-truck{width:76px} col.c-cont{width:82px} col.c-m3{width:42px} col.c-rate{width:84px}
-  col.c-hm{width:92px} col.c-ket{width:96px}
+  col.c-hm{width:88px} col.c-ll{width:80px} col.c-ket{width:90px}
   .empty{text-align:center;color:var(--muted);padding:34px 12px}
   .config{font-size:12px;color:var(--muted)}
   .config summary{cursor:pointer;font-weight:600;color:var(--accent)}
@@ -66,6 +66,21 @@
   .selbar .info b{display:block;font-size:16px}
   .selbar button{padding:11px 16px;border:none;border-radius:9px;background:var(--gold);color:#fff;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap}
   datalist{display:none}
+  .navtab{display:flex;gap:6px;padding:10px 14px 0;max-width:760px;margin:0 auto}
+  .ntab{flex:1;padding:10px;border:1px solid var(--line);border-bottom:none;border-radius:10px 10px 0 0;background:var(--paper);color:var(--muted);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit}
+  .ntab.active{background:var(--card);color:var(--accent);border-color:var(--line)}
+  .hgrp{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .hgrp-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+  .hgrp-h b{font-size:14px;color:var(--accent)}
+  .hgrp-h .tot{font-size:15px;font-weight:800;color:var(--gold);white-space:nowrap}
+  .hgrp-s{font-size:11.5px;color:var(--muted);margin-bottom:8px}
+  .hrow{font-size:11.5px;border-top:1px solid var(--line);padding:6px 0;display:flex;justify-content:space-between;gap:8px}
+  .hrow .l{flex:1;min-width:0}
+  .hrow .l b{display:block}
+  .hrow .l span{color:var(--muted)}
+  .hrow .v{text-align:right;white-space:nowrap}
+  .hgrp-f{display:flex;gap:6px;margin-top:9px}
+  .hgrp-f button{flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
   #printArea{display:none}
   @page{ size:A4 landscape; margin:12mm; }
   @media print{
@@ -106,7 +121,12 @@
   <p>Filter → centang → simpan → cetak dengan total harga</p>
 </header>
 
-<div class="wrap no-print">
+<div class="navtab no-print">
+  <button class="ntab active" data-tab="cari">🔍 Cari</button>
+  <button class="ntab" data-tab="history">📁 History</button>
+</div>
+
+<div class="wrap no-print" id="pageCari">
   <div class="panel">
     <div class="field">
       <label>Nama Ekspedisi</label>
@@ -144,10 +164,25 @@
       <button class="btn btn-sec" id="reload" style="margin-top:10px">Muat Ulang Data</button>
       <label style="margin-top:12px">URL Apps Script (utk simpan ke Sheet)</label>
       <input id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+      <label style="margin-top:12px">GID tab Rekap (utk History)</label>
+      <input id="gidRekap" placeholder="mis. 123456789" autocomplete="off">
     </div>
   </details>
 
   <div id="results"></div>
+</div>
+
+<!-- HALAMAN HISTORY -->
+<div class="wrap no-print" id="pageHistory" style="display:none">
+  <div class="panel">
+    <div class="field">
+      <label>Cari No Invoice / Distributor / Truck</label>
+      <input id="hCari" placeholder="ketik untuk menyaring…" autocomplete="off">
+    </div>
+    <button class="btn btn-sec" id="hReload">Muat Ulang History</button>
+    <div class="status" id="hStatus">Belum dimuat.</div>
+  </div>
+  <div id="hList"></div>
 </div>
 
 <div class="selbar no-print" id="selbar">
@@ -378,13 +413,15 @@ function render(){
   const rows=VIEW.map(r=>{
     const on=SEL.has(r.id);
     const firstOfCont=!seenCont.has(r.contKey); if(firstOfCont)seenCont.add(r.contKey);
-    const mv=MANUAL[r.contKey]||{harga:'',ket:''};
+    const mv=MANUAL[r.contKey]||{harga:'',lain:'',ket:''};
     const hVal = mv.harga ? 'Rp '+toNum(mv.harga).toLocaleString('id-ID') : '';
+    const lVal = mv.lain ? 'Rp '+toNum(mv.lain).toLocaleString('id-ID') : '';
     const kEnc = encodeURIComponent(r.contKey);
     const inputCells = firstOfCont
       ? `<td class="editcell"><input class="in-harga" data-k="${kEnc}" inputmode="numeric" value="${hVal}" placeholder="—"></td>
+         <td class="editcell"><input class="in-lain" data-k="${kEnc}" inputmode="numeric" value="${lVal}" placeholder="—"></td>
          <td class="editcell"><input class="in-ket" data-k="${kEnc}" value="${(mv.ket||'').replace(/"/g,'&quot;')}" placeholder="—"></td>`
-      : `<td class="editcell muted2">〃</td><td class="editcell muted2">〃</td>`;
+      : `<td class="editcell muted2">〃</td><td class="editcell muted2">〃</td><td class="editcell muted2">〃</td>`;
     return `<tr class="rrow ${on?'sel':''}" data-id="${r.id}">
       <td class="cbcell"><input type="checkbox" class="chk" ${on?'checked':''}></td>
       <td>${r.tgl||'—'}</td>
@@ -399,10 +436,10 @@ function render(){
     </tr>`;
   }).join('');
   html+=`<div class="tblwrap"><table class="restbl">
-    <colgroup><col class="c-chk"><col class="c-tgl"><col class="c-sj"><col class="c-dist"><col class="c-exp"><col class="c-truck"><col class="c-cont"><col class="c-m3"><col class="c-rate"><col class="c-hm"><col class="c-ket"></colgroup>
+    <colgroup><col class="c-chk"><col class="c-tgl"><col class="c-sj"><col class="c-dist"><col class="c-exp"><col class="c-truck"><col class="c-cont"><col class="c-m3"><col class="c-rate"><col class="c-hm"><col class="c-ll"><col class="c-ket"></colgroup>
     <thead><tr>
       <th class="cbcell"><input type="checkbox" id="chkAllHead"></th>
-      <th>Tgl</th><th>No Surat Jalan / SO</th><th>Distributor</th><th>Eksp</th><th>No Truck</th><th>No Kontainer</th><th class="m3">m³</th><th class="rate">Harga</th><th>Harga Manual</th><th>Ket</th>
+      <th>Tgl</th><th>No Surat Jalan / SO</th><th>Distributor</th><th>Eksp</th><th>No Truck</th><th>No Kontainer</th><th class="m3">m³</th><th class="rate">Harga</th><th>Revisi</th><th>Lain-lain</th><th>Ket</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
@@ -419,26 +456,30 @@ function render(){
     cb.addEventListener('change',toggle);
     row.addEventListener('click',e=>{
       const t=e.target;
-      if(t!==cb && !t.classList.contains('in-harga') && !t.classList.contains('in-ket')){cb.checked=!cb.checked;toggle();}
+      if(t!==cb && !t.classList.contains('in-harga') && !t.classList.contains('in-lain') && !t.classList.contains('in-ket')){cb.checked=!cb.checked;toggle();}
     });
   });
-  // harga manual: simpan angka murni saat ketik, format Rp saat selesai (blur)
-  box.querySelectorAll('.in-harga').forEach(inp=>{
-    const k=decodeURIComponent(inp.dataset.k);
-    inp.addEventListener('input',()=>{
-      MANUAL[k]=MANUAL[k]||{};
-      const angka=toNum(inp.value);
-      MANUAL[k].harga = angka>0 ? String(angka) : '';
+  // helper: pasang input uang (format Rp saat blur)
+  const pasangUang=(sel,field)=>{
+    box.querySelectorAll(sel).forEach(inp=>{
+      const k=decodeURIComponent(inp.dataset.k);
+      inp.addEventListener('input',()=>{
+        MANUAL[k]=MANUAL[k]||{};
+        const angka=toNum(inp.value);
+        MANUAL[k][field] = angka>0 ? String(angka) : '';
+      });
+      inp.addEventListener('focus',()=>{
+        const v=(MANUAL[k]||{})[field];
+        inp.value = v ? String(v) : '';
+      });
+      inp.addEventListener('blur',()=>{
+        const v=(MANUAL[k]||{})[field];
+        inp.value = v && +v>0 ? 'Rp '+(+v).toLocaleString('id-ID') : '';
+      });
     });
-    inp.addEventListener('focus',()=>{
-      const v=(MANUAL[k]||{}).harga;
-      inp.value = v ? String(v) : '';
-    });
-    inp.addEventListener('blur',()=>{
-      const v=(MANUAL[k]||{}).harga;
-      inp.value = v && +v>0 ? 'Rp '+(+v).toLocaleString('id-ID') : '';
-    });
-  });
+  };
+  pasangUang('.in-harga','harga');
+  pasangUang('.in-lain','lain');
   box.querySelectorAll('.in-ket').forEach(inp=>{
     const k=decodeURIComponent(inp.dataset.k);
     inp.addEventListener('input',()=>{ MANUAL[k]=MANUAL[k]||{}; MANUAL[k].ket=inp.value; });
@@ -472,13 +513,17 @@ function buildRekap(){
   const list=Object.values(groups).filter(g=>g.rate>0).map(g=>{
     delete g.seenSj;
     const mv=MANUAL[g.contKey]||{};
-    const hm=toNum(mv.harga);
-    g.hargaManual = hm>0?hm:null;
+    const rev=toNum(mv.harga);      // revisi
+    const lain=toNum(mv.lain);      // lain-lain
+    g.revisi = rev>0?rev:null;
+    g.lainLain = lain>0?lain:null;
     g.keterangan = (mv.ket||'').trim();
-    g.hargaFinal = hm>0?hm:g.rate;
+    // aturan: ada revisi -> pakai revisi (abaikan harga awal); + lain-lain
+    const dasar = rev>0 ? rev : g.rate;
+    g.totalBaris = dasar + (lain>0?lain:0);
     return g;
   });
-  const total=list.reduce((s,g)=>s+(g.hargaFinal||g.rate),0);
+  const total=list.reduce((s,g)=>s+g.totalBaris,0);
   const totalM3=list.reduce((s,g)=>s+g.items.reduce((a,it)=>a+(it.m3||0),0),0);
   const skipped=Object.values(groups).length-list.length;
   const noInv=$('noInv').value.trim();
@@ -501,9 +546,8 @@ function buildPrint(rekap){
     const subM3=g.items.reduce((a,it)=>a+(it.m3||0),0);
     const spa=g.items.map(it=>it.sj).filter(Boolean).join(', ');
     const so=[...new Set(g.items.map(it=>it.so).filter(Boolean))].join(', ');
-    const hFinal=(g.hargaFinal!=null?g.hargaFinal:g.rate);
+    const hFinal=g.totalBaris;
     totalFinal+=hFinal;
-    const adaManual=(g.hargaManual!=null && g.hargaManual>0);
     return `<tr>
       <td class="c">${i+1}</td>
       <td>${g.dist||'—'}</td>
@@ -514,7 +558,9 @@ function buildPrint(rekap){
       <td>${so||'—'}</td>
       <td class="r">${fmtM3(subM3)}</td>
       <td class="r">${fmtRp(g.rate)}</td>
-      <td class="r">${adaManual?fmtRp(g.hargaManual):''}</td>
+      <td class="r">${g.revisi?fmtRp(g.revisi):''}</td>
+      <td class="r">${g.lainLain?fmtRp(g.lainLain):''}</td>
+      <td class="r"><b>${fmtRp(g.totalBaris)}</b></td>
       <td>${g.keterangan||''}</td>
     </tr>`;
   }).join('');
@@ -533,10 +579,10 @@ function buildPrint(rekap){
     </div>
     <table>
       <thead><tr>
-        <th class="c" style="width:26px">No</th><th style="width:150px">Distributor</th><th style="width:52px">Eksp</th><th style="width:110px">No Truck / Kontainer</th><th style="width:62px">Tgl</th><th>No Surat Jalan</th><th>No SO</th><th class="r" style="width:48px">m³</th><th class="r" style="width:92px">Harga</th><th class="r" style="width:92px">Harga Manual</th><th style="width:110px">Keterangan</th>
+        <th class="c" style="width:24px">No</th><th style="width:130px">Distributor</th><th style="width:44px">Eksp</th><th style="width:96px">No Truck / Kontainer</th><th style="width:58px">Tgl</th><th>No Surat Jalan</th><th>No SO</th><th class="r" style="width:42px">m³</th><th class="r" style="width:82px">Harga</th><th class="r" style="width:82px">Revisi</th><th class="r" style="width:74px">Lain-lain</th><th class="r" style="width:88px">Total</th><th style="width:88px">Ket</th>
       </tr></thead>
       <tbody>${body}</tbody>
-      <tfoot><tr><td colspan="7" class="r">TOTAL</td><td class="r">${fmtM3(totalM3)}</td><td class="r" colspan="2">${fmtRp(totalFinal)||'Rp 0'}</td><td></td></tr></tfoot>
+      <tfoot><tr><td colspan="7" class="r">TOTAL</td><td class="r">${fmtM3(totalM3)}</td><td colspan="3"></td><td class="r">${fmtRp(totalFinal)||'Rp 0'}</td><td></td></tr></tfoot>
     </table>
     ${skipped>0?`<p style="font-size:11px;color:#666;margin-top:6px">*) ${skipped} truck terpilih tidak dicetak karena belum ada harga.</p>`:''}
     <div class="p-sign">
@@ -558,6 +604,126 @@ function kirimKeSheet(rekap){
   }).catch(()=>{});
   return true;
 }
+
+// ===== NAVIGASI TAB =====
+document.querySelectorAll('.ntab').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.ntab').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    const t=b.dataset.tab;
+    $('pageCari').style.display = t==='cari'?'':'none';
+    $('pageHistory').style.display = t==='history'?'':'none';
+    $('selbar').style.display = t==='cari'?'':'none';
+    if(t==='history' && !HIST.length) muatHistory();
+  };
+});
+
+// ===== HISTORY (baca tab Rekap di Sheet) =====
+let HIST=[];
+async function muatHistory(){
+  const sid=$('sid').value.trim();
+  const gid=($('gidRekap').value||'').trim();
+  if(!gid){ $('hStatus').textContent='Isi dulu "GID tab Rekap" di Pengaturan (halaman Cari).'; $('hStatus').className='status err'; return; }
+  try{ localStorage.setItem('gid_rekap_unifam', gid); }catch(e){}
+  $('hStatus').textContent='Memuat history…'; $('hStatus').className='status';
+  const data=await fetchOneGid(sid,gid);
+  if(!data){ $('hStatus').textContent='Gagal memuat tab Rekap. Cek GID.'; $('hStatus').className='status err'; return; }
+  // baris 0 = header
+  const H=data[0].map(h=>String(h||'').toLowerCase().trim());
+  const idx=n=>H.findIndex(h=>h.includes(n));
+  const cW=idx('waktu'), cInv=idx('invoice'), cPer=idx('periode'), cDist=idx('distributor'),
+        cExp=idx('ekspedisi'), cTruck=idx('truck'), cCont=idx('kontainer'), cTgl=idx('tgl kirim'),
+        cSj=idx('surat jalan'), cSo=idx('no so'), cM3=idx('m3'),
+        cHarga=idx('harga'), cRev=idx('revisi'), cLain=idx('lain'), cTot=idx('total'), cKet=idx('keterangan');
+  const g=(r,i)=> (i>=0 && r[i]!=null) ? String(r[i]).trim() : '';
+  const rows=[];
+  for(let i=1;i<data.length;i++){
+    const r=data[i]; if(!r||!g(r,cSj))continue;
+    rows.push({
+      waktu:g(r,cW), inv:g(r,cInv), periode:g(r,cPer), dist:g(r,cDist), exp:g(r,cExp),
+      nopol:g(r,cTruck), cont:g(r,cCont), tgl:g(r,cTgl), sj:g(r,cSj), so:g(r,cSo),
+      m3:toNum(g(r,cM3)), harga:toNum(g(r,cHarga)), revisi:toNum(g(r,cRev)),
+      lain:toNum(g(r,cLain)), total:toNum(g(r,cTot)), ket:g(r,cKet)
+    });
+  }
+  HIST=rows;
+  $('hStatus').textContent=rows.length+' baris history dimuat.'; $('hStatus').className='status ok';
+  renderHistory();
+}
+
+function renderHistory(){
+  const q=($('hCari').value||'').trim().toLowerCase();
+  let rows=HIST;
+  if(q) rows=rows.filter(r=>(r.inv+' '+r.dist+' '+r.nopol+' '+r.cont+' '+r.sj).toLowerCase().includes(q));
+  if(!rows.length){ $('hList').innerHTML='<div class="panel empty">Tidak ada history yang cocok.</div>'; return; }
+  // kelompokkan per (waktu simpan + no invoice) = satu kali cetak
+  const grup={};
+  rows.forEach(r=>{
+    const k=r.waktu+'||'+r.inv;
+    if(!grup[k]) grup[k]={waktu:r.waktu,inv:r.inv,periode:r.periode,items:[],total:0};
+    grup[k].items.push(r);
+    grup[k].total+=r.total||0;
+  });
+  const list=Object.values(grup).sort((a,b)=> (a.waktu<b.waktu?1:-1)); // terbaru dulu
+  $('hList').innerHTML=list.map((gp,gi)=>`
+    <div class="hgrp">
+      <div class="hgrp-h">
+        <div>
+          <b>${gp.inv||'(tanpa no invoice)'}</b>
+          <div class="hgrp-s">${gp.periode?('Periode: '+gp.periode+' • '):''}${gp.items.length} truck<br>Disimpan: ${gp.waktu}</div>
+        </div>
+        <div class="tot">${fmtRp(gp.total)||'Rp 0'}</div>
+      </div>
+      ${gp.items.map(r=>`
+        <div class="hrow">
+          <div class="l">
+            <b>${r.dist||'—'}</b>
+            <span>${r.exp||''} • ${r.nopol||''} • ${r.cont||''} • ${r.tgl||''}</span>
+            <span>SJ: ${r.sj||'—'}</span>
+            ${r.ket?`<span>Ket: ${r.ket}</span>`:''}
+          </div>
+          <div class="v">
+            ${r.revisi>0?`<div style="text-decoration:line-through;color:var(--muted)">${fmtRp(r.harga)}</div><div>${fmtRp(r.revisi)}</div>`:`<div>${fmtRp(r.harga)}</div>`}
+            ${r.lain>0?`<div style="color:var(--muted)">+ ${fmtRp(r.lain)}</div>`:''}
+            <div style="font-weight:700">${fmtRp(r.total)}</div>
+          </div>
+        </div>`).join('')}
+      <div class="hgrp-f">
+        <button data-g="${gi}" class="h-print">🖨 Cetak Ulang</button>
+      </div>
+    </div>`).join('');
+  $('hList').querySelectorAll('.h-print').forEach(b=>{
+    b.onclick=()=>cetakUlang(list[+b.dataset.g]);
+  });
+}
+
+// susun ulang struktur rekap dari history lalu cetak
+function cetakUlang(gp){
+  const groups={};
+  gp.items.forEach(r=>{
+    const k=r.nopol+'|'+r.exp+'|'+r.tgl+'|'+r.cont;
+    if(!groups[k]) groups[k]={contKey:k,nopol:r.nopol,exp:r.exp,tgl:r.tgl,cont:r.cont,dist:r.dist,
+      rate:r.harga,revisi:r.revisi>0?r.revisi:null,lainLain:r.lain>0?r.lain:null,
+      keterangan:r.ket,totalBaris:r.total,items:[]};
+    // SPA & SO bisa berisi banyak (dipisah koma) -> pecah lagi
+    const sjs=(r.sj||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const sos=(r.so||'').split(',').map(s=>s.trim()).filter(Boolean);
+    sjs.forEach((sj,i)=>groups[k].items.push({sj,so:sos[i]||sos[0]||'',m3:i===0?r.m3:0}));
+  });
+  const list=Object.values(groups);
+  const rekap={list,total:gp.total,totalM3:list.reduce((s,g)=>s+g.items.reduce((a,it)=>a+(it.m3||0),0),0),
+    skipped:0,noInv:gp.inv,periode:gp.periode,dibuat:gp.waktu};
+  buildPrint(rekap);
+  setTimeout(()=>{
+    const j=document.title; document.title=' ';
+    window.print();
+    document.title=j;
+  },150);
+}
+
+$('hReload').onclick=muatHistory;
+$('hCari').addEventListener('input',()=>{ if(HIST.length)renderHistory(); });
+try{ const gr=localStorage.getItem('gid_rekap_unifam'); if(gr)$('gidRekap').value=gr; }catch(e){}
 
 $('cari').onclick=cari;
 $('dist').addEventListener('keydown',e=>{if(e.key==='Enter')cari();});
