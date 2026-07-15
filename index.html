@@ -53,6 +53,9 @@
   .btn-split{width:100%;padding:5px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--accent);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
   .btn-split.on{background:#0d9488;color:#fff;border-color:#0d9488}
   .spbadge{display:block;font-size:9px;color:#0d9488;font-weight:700;text-align:center;margin-top:2px}
+  .legpick{display:flex;align-items:center;gap:5px;font-size:11px;color:#ccc}
+  .legpick .lg{padding:6px 10px!important;border-radius:7px!important;background:#444!important;color:#fff!important;font-size:12px!important;border:none;cursor:pointer}
+  .legpick .lg.active{background:#0d9488!important}
   .cbcell{text-align:center}
   col.c-chk{width:34px} col.c-tgl{width:58px} col.c-sj{width:110px} col.c-dist{width:120px}
   col.c-exp{width:48px} col.c-truck{width:76px} col.c-cont{width:82px} col.c-m3{width:42px} col.c-rate{width:84px}
@@ -190,6 +193,11 @@
 
 <div class="selbar no-print" id="selbar">
   <div class="info">Dipilih <b id="selCount">0</b></div>
+  <div class="legpick" id="legPick" style="display:none">
+    <span>Cetak leg:</span>
+    <button class="lg active" data-leg="1">1</button>
+    <button class="lg" data-leg="2">2</button>
+  </div>
   <div style="display:flex;gap:8px">
     <button id="clearSel" style="background:#555">Batal</button>
     <button id="printSel">Simpan &amp; Cetak</button>
@@ -204,6 +212,7 @@ let ROWS=[], VIEW=[];
 const SEL=new Map();
 const MANUAL={}; // {contKey:{harga,lain,ket}}
 const SPLIT={};  // {contKey:{exp2,harga2}} - leg ke-2 multi-leg
+let LEG_PILIH='1'; // leg mana yg dicetak: '1' atau '2'
 
 function fmtRp(n){return n>0?'Rp.\u00A0'+Math.round(n).toLocaleString('id-ID'):null;}
 function toNum(v){
@@ -519,6 +528,9 @@ function render(){
 function updateSelbar(){
   $('selCount').textContent=SEL.size;
   $('selbar').classList.toggle('show',SEL.size>0);
+  // tampilkan pilihan leg hanya bila ada kontainer ber-split yg tercentang
+  const adaSplit=[...SEL.values()].some(r=>SPLIT[r.contKey]&&SPLIT[r.contKey].exp2);
+  $('legPick').style.display = adaSplit ? 'flex' : 'none';
 }
 
 // hasilkan struktur data rekap dari yang dipilih
@@ -539,26 +551,22 @@ function buildRekap(){
     const mv=MANUAL[g.contKey]||{};
     const rev=toNum(mv.harga);
     const lain=toNum(mv.lain);
+    const sp=SPLIT[g.contKey];
+    if(sp && sp.exp2 && LEG_PILIH==='2'){
+      // cetak leg-2: ganti ekspedisi & harga, ekspedisi leg-1 tidak ditampilkan
+      const h2=toNum(sp.harga2);
+      g.exp = sp.exp2;
+      g.rate = h2;
+      g.leg = '2';
+    } else if(sp && sp.exp2){
+      g.leg = '1';
+    }
     g.revisi = rev>0?rev:null;
     g.lainLain = lain>0?lain:null;
     g.keterangan = (mv.ket||'').trim();
     const dasar = rev>0 ? rev : g.rate;
     g.totalBaris = dasar + (lain>0?lain:0);
-    const sp=SPLIT[g.contKey];
-    if(sp && sp.exp2){
-      // multi-leg: leg-1 (ekspedisi asli) + leg-2 (ekspedisi tambahan)
-      g.leg='1';
-      list.push(g);
-      const h2=toNum(sp.harga2);
-      list.push({
-        contKey:g.contKey+'|LEG2', nopol:g.nopol, exp:sp.exp2, tgl:g.tgl, cont:g.cont, dist:g.dist,
-        items:g.items, rate:h2, revisi:null, lainLain:null,
-        keterangan:(g.keterangan?g.keterangan+' • ':'')+'Leg-2 (multi-leg)',
-        totalBaris:h2, leg:'2'
-      });
-    } else {
-      list.push(g);
-    }
+    list.push(g);
   });
   const total=list.reduce((s,g)=>s+g.totalBaris,0);
   const totalM3=list.reduce((s,g)=>s+g.items.reduce((a,it)=>a+(it.m3||0),0),0);
@@ -766,6 +774,13 @@ $('cari').onclick=cari;
 $('dist').addEventListener('keydown',e=>{if(e.key==='Enter')cari();});
 $('reload').onclick=loadData;
 $('clearSel').onclick=()=>{SEL.clear();render();updateSelbar();};
+document.querySelectorAll('.legpick .lg').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.legpick .lg').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    LEG_PILIH=b.dataset.leg;
+  };
+});
 $('printSel').onclick=()=>{
   if(!SEL.size)return;
   const rekap=buildRekap();
