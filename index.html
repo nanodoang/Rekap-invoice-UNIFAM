@@ -38,22 +38,25 @@
   .rate{color:var(--gold);font-weight:700}
   .rate.none{color:var(--muted);font-weight:400}
   .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:12px}
-  table.restbl{width:100%;border-collapse:collapse;background:var(--card);table-layout:fixed;font-size:11px;min-width:980px}
+  table.restbl{width:100%;border-collapse:collapse;background:var(--card);table-layout:fixed;font-size:11px;min-width:1040px}
   table.restbl th,table.restbl td{padding:5px 5px;text-align:left;border-bottom:1px solid var(--line);word-break:break-word;overflow-wrap:anywhere;vertical-align:top}
-  table.restbl th{background:#efe9dd;font-size:9px;text-transform:uppercase;letter-spacing:.2px;color:var(--muted)}
+  table.restbl th{background:#0d9488;font-size:9px;text-transform:uppercase;letter-spacing:.2px;color:#fff}
   table.restbl tr.rrow{cursor:pointer}
   table.restbl tr.sel td{background:var(--ok-bg)}
   table.restbl td.sj{font-weight:700}
   table.restbl td.sj .so{font-weight:400;color:var(--muted)}
   table.restbl td.m3,table.restbl th.m3{text-align:right}
-  table.restbl td.rate,table.restbl th.rate{text-align:right}
+  table.restbl td.rate,table.restbl th.rate{text-align:right;white-space:nowrap;overflow-wrap:normal;word-break:keep-all}
   table.restbl td.editcell{padding:3px}
   table.restbl td.editcell input{width:100%;padding:5px;border:1px solid var(--line);border-radius:6px;font-size:11px;font-family:inherit}
   table.restbl td.muted2{color:var(--line);text-align:center}
+  .btn-split{width:100%;padding:5px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--accent);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
+  .btn-split.on{background:#0d9488;color:#fff;border-color:#0d9488}
+  .spbadge{display:block;font-size:9px;color:#0d9488;font-weight:700;text-align:center;margin-top:2px}
   .cbcell{text-align:center}
   col.c-chk{width:34px} col.c-tgl{width:58px} col.c-sj{width:110px} col.c-dist{width:120px}
   col.c-exp{width:48px} col.c-truck{width:76px} col.c-cont{width:82px} col.c-m3{width:42px} col.c-rate{width:84px}
-  col.c-hm{width:88px} col.c-ll{width:80px} col.c-ket{width:90px}
+  col.c-hm{width:88px} col.c-ll{width:80px} col.c-ket{width:90px} col.c-sp{width:52px}
   .empty{text-align:center;color:var(--muted);padding:34px 12px}
   .config{font-size:12px;color:var(--muted)}
   .config summary{cursor:pointer;font-weight:600;color:var(--accent)}
@@ -95,8 +98,8 @@
   .p-meta{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:10px}
   table{width:100%;border-collapse:collapse;font-size:11px}
   th,td{border:1px solid #888;padding:5px 7px;text-align:left;vertical-align:top}
-  th{background:#e9e9e9;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px}
-  td.r,th.r{text-align:right}
+  th{background:#0d9488;color:#fff;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  td.r,th.r{text-align:right;white-space:nowrap;overflow-wrap:normal;word-break:keep-all}
   td.c,th.c{text-align:center}
   tfoot td{font-weight:800;background:#f3f3f3}
   .p-sign{margin-top:40px;display:flex;justify-content:space-around;font-size:11.5px}
@@ -199,9 +202,10 @@
 const $=id=>document.getElementById(id);
 let ROWS=[], VIEW=[];
 const SEL=new Map();
-const MANUAL={}; // {contKey:{harga,ket}}
+const MANUAL={}; // {contKey:{harga,lain,ket}}
+const SPLIT={};  // {contKey:{exp2,harga2}} - leg ke-2 multi-leg
 
-function fmtRp(n){return n>0?'Rp '+Math.round(n).toLocaleString('id-ID'):null;}
+function fmtRp(n){return n>0?'Rp.\u00A0'+Math.round(n).toLocaleString('id-ID'):null;}
 function toNum(v){
   if(v==null||v==='')return 0;
   if(typeof v==='number')return v;
@@ -414,14 +418,17 @@ function render(){
     const on=SEL.has(r.id);
     const firstOfCont=!seenCont.has(r.contKey); if(firstOfCont)seenCont.add(r.contKey);
     const mv=MANUAL[r.contKey]||{harga:'',lain:'',ket:''};
-    const hVal = mv.harga ? 'Rp '+toNum(mv.harga).toLocaleString('id-ID') : '';
-    const lVal = mv.lain ? 'Rp '+toNum(mv.lain).toLocaleString('id-ID') : '';
+    const hVal = mv.harga ? 'Rp.\u00A0'+toNum(mv.harga).toLocaleString('id-ID') : '';
+    const lVal = mv.lain ? 'Rp.\u00A0'+toNum(mv.lain).toLocaleString('id-ID') : '';
     const kEnc = encodeURIComponent(r.contKey);
+    const sp=SPLIT[r.contKey];
+    const spBadge = sp ? `<span class="spbadge">${sp.exp2}</span>` : '';
     const inputCells = firstOfCont
       ? `<td class="editcell"><input class="in-harga" data-k="${kEnc}" inputmode="numeric" value="${hVal}" placeholder="—"></td>
          <td class="editcell"><input class="in-lain" data-k="${kEnc}" inputmode="numeric" value="${lVal}" placeholder="—"></td>
-         <td class="editcell"><input class="in-ket" data-k="${kEnc}" value="${(mv.ket||'').replace(/"/g,'&quot;')}" placeholder="—"></td>`
-      : `<td class="editcell muted2">〃</td><td class="editcell muted2">〃</td><td class="editcell muted2">〃</td>`;
+         <td class="editcell"><input class="in-ket" data-k="${kEnc}" value="${(mv.ket||'').replace(/"/g,'&quot;')}" placeholder="—"></td>
+         <td class="editcell"><button class="btn-split ${sp?'on':''}" data-k="${kEnc}">${sp?'✎':'+'}</button>${spBadge}</td>`
+      : `<td class="editcell muted2">〃</td><td class="editcell muted2">〃</td><td class="editcell muted2">〃</td><td class="editcell muted2">〃</td>`;
     return `<tr class="rrow ${on?'sel':''}" data-id="${r.id}">
       <td class="cbcell"><input type="checkbox" class="chk" ${on?'checked':''}></td>
       <td>${r.tgl||'—'}</td>
@@ -436,10 +443,10 @@ function render(){
     </tr>`;
   }).join('');
   html+=`<div class="tblwrap"><table class="restbl">
-    <colgroup><col class="c-chk"><col class="c-tgl"><col class="c-sj"><col class="c-dist"><col class="c-exp"><col class="c-truck"><col class="c-cont"><col class="c-m3"><col class="c-rate"><col class="c-hm"><col class="c-ll"><col class="c-ket"></colgroup>
+    <colgroup><col class="c-chk"><col class="c-tgl"><col class="c-sj"><col class="c-dist"><col class="c-exp"><col class="c-truck"><col class="c-cont"><col class="c-m3"><col class="c-rate"><col class="c-hm"><col class="c-ll"><col class="c-ket"><col class="c-sp"></colgroup>
     <thead><tr>
       <th class="cbcell"><input type="checkbox" id="chkAllHead"></th>
-      <th>Tgl</th><th>No Surat Jalan / SO</th><th>Distributor</th><th>Eksp</th><th>No Truck</th><th>No Kontainer</th><th class="m3">m³</th><th class="rate">Harga</th><th>Revisi</th><th>Lain-lain</th><th>Ket</th>
+      <th>Tgl</th><th>No Surat Jalan / SO</th><th>Distributor</th><th>Eksp</th><th>No Truck</th><th>No Kontainer</th><th class="m3">m³</th><th class="rate">Harga</th><th>Revisi</th><th>Lain-lain</th><th>Ket</th><th>Leg-2</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
@@ -456,8 +463,24 @@ function render(){
     cb.addEventListener('change',toggle);
     row.addEventListener('click',e=>{
       const t=e.target;
-      if(t!==cb && !t.classList.contains('in-harga') && !t.classList.contains('in-lain') && !t.classList.contains('in-ket')){cb.checked=!cb.checked;toggle();}
+      if(t!==cb && !t.classList.contains('in-harga') && !t.classList.contains('in-lain') && !t.classList.contains('in-ket') && !t.classList.contains('btn-split')){cb.checked=!cb.checked;toggle();}
     });
+  });
+  // tombol split multi-leg
+  box.querySelectorAll('.btn-split').forEach(b=>{
+    b.onclick=e=>{
+      e.stopPropagation();
+      const k=decodeURIComponent(b.dataset.k);
+      const cur=SPLIT[k]||{};
+      const exps=[...new Set(ROWS.map(r=>r.exp).filter(Boolean))].sort();
+      const e2=prompt('Ekspedisi leg ke-2\n(pilihan: '+exps.join(', ')+')\n\nKosongkan untuk menghapus split:', cur.exp2||'');
+      if(e2===null)return;
+      if(!e2.trim()){ delete SPLIT[k]; render(); return; }
+      const h2=prompt('Harga untuk '+e2.trim()+' (leg ke-2):', cur.harga2||'');
+      if(h2===null)return;
+      SPLIT[k]={exp2:e2.trim(), harga2:String(toNum(h2))};
+      render();
+    };
   });
   // helper: pasang input uang (format Rp saat blur)
   const pasangUang=(sel,field)=>{
@@ -474,7 +497,7 @@ function render(){
       });
       inp.addEventListener('blur',()=>{
         const v=(MANUAL[k]||{})[field];
-        inp.value = v && +v>0 ? 'Rp '+(+v).toLocaleString('id-ID') : '';
+        inp.value = v && +v>0 ? 'Rp.\u00A0'+(+v).toLocaleString('id-ID') : '';
       });
     });
   };
@@ -510,18 +533,32 @@ function buildRekap(){
     if(r.sj && !gg.seenSj.has(r.sj)){ gg.seenSj.add(r.sj); gg.items.push({sj:r.sj,so:r.so,m3:r.m3||0}); }
     if(!gg.dist && r.dist) gg.dist=r.dist;
   });
-  const list=Object.values(groups).filter(g=>g.rate>0).map(g=>{
+  const list=[];
+  Object.values(groups).filter(g=>g.rate>0).forEach(g=>{
     delete g.seenSj;
     const mv=MANUAL[g.contKey]||{};
-    const rev=toNum(mv.harga);      // revisi
-    const lain=toNum(mv.lain);      // lain-lain
+    const rev=toNum(mv.harga);
+    const lain=toNum(mv.lain);
     g.revisi = rev>0?rev:null;
     g.lainLain = lain>0?lain:null;
     g.keterangan = (mv.ket||'').trim();
-    // aturan: ada revisi -> pakai revisi (abaikan harga awal); + lain-lain
     const dasar = rev>0 ? rev : g.rate;
     g.totalBaris = dasar + (lain>0?lain:0);
-    return g;
+    const sp=SPLIT[g.contKey];
+    if(sp && sp.exp2){
+      // multi-leg: leg-1 (ekspedisi asli) + leg-2 (ekspedisi tambahan)
+      g.leg='1';
+      list.push(g);
+      const h2=toNum(sp.harga2);
+      list.push({
+        contKey:g.contKey+'|LEG2', nopol:g.nopol, exp:sp.exp2, tgl:g.tgl, cont:g.cont, dist:g.dist,
+        items:g.items, rate:h2, revisi:null, lainLain:null,
+        keterangan:(g.keterangan?g.keterangan+' • ':'')+'Leg-2 (multi-leg)',
+        totalBaris:h2, leg:'2'
+      });
+    } else {
+      list.push(g);
+    }
   });
   const total=list.reduce((s,g)=>s+g.totalBaris,0);
   const totalM3=list.reduce((s,g)=>s+g.items.reduce((a,it)=>a+(it.m3||0),0),0);
