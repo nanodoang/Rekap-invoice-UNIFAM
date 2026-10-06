@@ -322,7 +322,7 @@ function parseSheet(data){
   let hIdx=-1;
   for(let i=0;i<Math.min(data.length,20);i++){
     const j=data[i].join('|').toLowerCase();
-    if(j.includes('packing slip')||j.includes('surat jalan')||j.includes('no do')||(j.includes('rate')&&j.includes('distributor'))||(j.includes('expedition')&&j.includes('container'))){hIdx=i;break;}
+    if(j.includes('packing slip')||j.includes('surat jalan')||j.includes('no do')||(j.includes('distributor')&&j.includes('expedition'))||(j.includes('distributor')&&j.includes('sales order'))||(j.includes('expedition')&&j.includes('container'))){hIdx=i;break;}
   }
   if(hIdx<0) return [];
   const H=data[hIdx];
@@ -331,14 +331,23 @@ function parseSheet(data){
   const cNopol=findCol(H,['truck','nopol','no pol','polisi']);
   const cTgl = findCol(H,['ship date','tgl kirim','tanggal kirim','tgl','tanggal']);
   const cDist= findCol(H,['distributor','distri','customer','pelanggan']);
-  const cCont= findCol(H,['container','kontainer','cont']);
-  // Rate = kolom K (indeks 10) sesuai struktur sheet; fallback cari header 'rate' paling kanan
-  let cRate = 10;
-  if(!H[10] || !String(H[10]).toLowerCase().includes('rate')){
-    cRate = findLastCol(H,['rate','harga','tarif','biaya','nominal']);
+  const cCont= findCol(H,['container num','kontainer','container','no kontener']);
+  // Rate: ada 2 kolom "Rate" (satu kosong). Pilih kolom header 'rate' yang BENAR-BENAR berisi data.
+  const rateCols=[];
+  H.forEach((h,ci)=>{ const s=String(h||'').toLowerCase(); if(/rate|harga|tarif|biaya|nominal/.test(s)) rateCols.push(ci); });
+  let cRate = -1;
+  for(const ci of rateCols){
+    // cek apakah kolom ini punya minimal 1 angka di 50 baris pertama
+    let ada=false;
+    for(let i=hIdx+1;i<Math.min(hIdx+51,data.length);i++){
+      if(data[i] && toNum(String(data[i][ci]||''))>0){ada=true;break;}
+    }
+    if(ada){ cRate=ci; break; }
   }
-  const cSo  = findCol(H,['sales order','no so','nomor so']);
-  const cSj  = findCol(H,['packing slip','surat jalan','no sj','delivery order','no do']);
+  if(cRate<0) cRate = (rateCols.length?rateCols[0]:10);
+  const cSo  = findCol(H,['sales order','no so','nomor so','sales id']);
+  // surat jalan: kolom khusus bila ada; kalau tidak ada, pakai No SO sbg penanda
+  const cSj  = findCol(H,['packing slip','surat jalan','no sj','delivery order','no do','sjpa']);
   const cM3  = findCol(H,['m3','m³','kubikasi','kubik','cbm','volume']);
 
   const g=(c,idx)=> (idx>=0 && c[idx]!=null) ? String(c[idx]).trim() : '';
@@ -353,11 +362,12 @@ function parseSheet(data){
     const cont=g(c,cCont);
     const rate=toNum(g(c,cRate));
     const so=g(c,cSo);
-    const sj=g(c,cSj);
+    // kalau tak ada kolom surat jalan, pakai No SO sebagai penanda baris
+    const sj = cSj>=0 ? g(c,cSj) : so;
     const m3=toNum(g(c,cM3));
-    if(!sj)continue;
+    if(!sj && !so)continue;      // baris benar-benar kosong
     if(exp){lastExp=exp;}else{exp=lastExp;}
-    raw.push({exp,nopol,tgl,dist,cont,rate,so,sj,m3});
+    raw.push({exp,nopol,tgl,dist,cont,rate,so,sj:sj||so,m3});
   }
   // tahap 2: kumpulkan rate per kontainer (nopol+exp+tgl+cont), lalu tempel ke semua baris
   const rateMap={};
@@ -679,19 +689,38 @@ async function muatHistory(){
   const cW=idx('waktu'), cInv=idx('invoice'), cPer=idx('periode'), cDist=idx('distributor'),
         cExp=idx('ekspedisi'), cTruck=idx('truck'), cCont=idx('kontainer'), cTgl=idx('tgl kirim'),
         cSj=idx('surat jalan'), cSo=idx('no so'), cM3=idx('m3'),
-        cHarga=idx('harga'), cRev=idx('revisi'), cLain=idx('lain'), cTot=idx('total'), cKet=idx('keterangan');
+        cRev=idx('revisi'), cLain=idx('lain'), cKet=idx('keterangan');
+  // harga: header baru "Harga", lama "Harga Sistem". total: baru "Total", lama "Harga Final"
+  const cHarga = H.findIndex(h=>h==='harga'||h.includes('harga sistem')||h.includes('harga'));
+  const cTot = (()=>{ let i=H.findIndex(h=>h==='total'||h.includes('harga final')); return i; })();
+  // jika header inti tak ketemu, tampilkan diagnosa
+  if(cDist<0 && cSj<0 && cInv<0){
+    $('hStatus').textContent='Header tab Rekap tak dikenali. Kolom terbaca: '+H.join(' | ');
+    $('hStatus').className='status err';
+    return;
+  }
   const g=(r,i)=> (i>=0 && r[i]!=null) ? String(r[i]).trim() : '';
   const rows=[];
   for(let i=1;i<data.length;i++){
-    const r=data[i]; if(!r||!g(r,cSj))continue;
+    const r=data[i]; if(!r)continue;
+    // baris valid bila ada salah satu penanda: distributor / surat jalan / waktu
+    const penanda = g(r,cDist)||g(r,cSj)||g(r,cW);
+    if(!penanda)continue;
+    const harga=toNum(g(r,cHarga)), revisi=toNum(g(r,cRev)), lain=toNum(g(r,cLain));
+    let total=toNum(g(r,cTot));
+    if(!(total>0)) total = (revisi>0?revisi:harga) + (lain>0?lain:0); // fallback baris lama
     rows.push({
       waktu:g(r,cW), inv:g(r,cInv), periode:g(r,cPer), dist:g(r,cDist), exp:g(r,cExp),
       nopol:g(r,cTruck), cont:g(r,cCont), tgl:g(r,cTgl), sj:g(r,cSj), so:g(r,cSo),
-      m3:toNum(g(r,cM3)), harga:toNum(g(r,cHarga)), revisi:toNum(g(r,cRev)),
-      lain:toNum(g(r,cLain)), total:toNum(g(r,cTot)), ket:g(r,cKet)
+      m3:toNum(g(r,cM3)), harga, revisi, lain, total, ket:g(r,cKet)
     });
   }
   HIST=rows;
+  if(!rows.length){
+    $('hStatus').textContent='Tab terbaca tapi 0 baris data. Header: '+H.join(' | ');
+    $('hStatus').className='status err';
+    return;
+  }
   $('hStatus').textContent=rows.length+' baris history dimuat.'; $('hStatus').className='status ok';
   renderHistory();
 }
@@ -802,6 +831,5 @@ $('printSel').onclick=()=>{
 try{ const u=localStorage.getItem('script_url_unifam'); if(u)$('scriptUrl').value=u; }catch(e){}
 loadData();
 </script>
-<a href="https://nanodoang.github.io/Logistic-Transportation/" style="position:fixed;bottom:18px;left:18px;display:flex;align-items:center;gap:8px;background:#1a1f1a;color:#f0efe6;text-decoration:none;font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,0.25);z-index:9999;" onmouseover="this.style.background='#b5502e'" onmouseout="this.style.background='#1a1f1a'">← Portal Utama</a>
 </body>
 </html>
