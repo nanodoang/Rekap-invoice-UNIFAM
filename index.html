@@ -556,14 +556,14 @@ function buildRekap(){
     if(!gg.dist && r.dist) gg.dist=r.dist;
   });
   const list=[];
-  Object.values(groups).filter(g=>g.rate>0).forEach(g=>{
+  // SEMUA kontainer yg dicentang ikut, termasuk yg harganya belum ada
+  Object.values(groups).forEach(g=>{
     delete g.seenSj;
     const mv=MANUAL[g.contKey]||{};
     const rev=toNum(mv.harga);
     const lain=toNum(mv.lain);
     const sp=SPLIT[g.contKey];
     if(sp && sp.exp2 && LEG_PILIH==='2'){
-      // cetak leg-2: ganti ekspedisi & harga, ekspedisi leg-1 tidak ditampilkan
       const h2=toNum(sp.harga2);
       g.exp = sp.exp2;
       g.rate = h2;
@@ -574,13 +574,14 @@ function buildRekap(){
     g.revisi = rev>0?rev:null;
     g.lainLain = lain>0?lain:null;
     g.keterangan = (mv.ket||'').trim();
-    const dasar = rev>0 ? rev : g.rate;
+    const dasar = rev>0 ? rev : (g.rate||0);
     g.totalBaris = dasar + (lain>0?lain:0);
     list.push(g);
   });
   const total=list.reduce((s,g)=>s+g.totalBaris,0);
   const totalM3=list.reduce((s,g)=>s+g.items.reduce((a,it)=>a+(it.m3||0),0),0);
-  const skipped=Object.values(groups).length-list.length;
+  const skipped=0;
+  const tanpaHarga=list.filter(g=>!(g.totalBaris>0)).length;
   const noInv=$('noInv').value.trim();
   const dari=$('tglDari').value, sampai=$('tglSampai').value;
   const fmtD=s=>{const d=new Date(s);return d.toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});};
@@ -588,22 +589,22 @@ function buildRekap(){
   if(dari&&sampai)periode=fmtD(dari)+' s/d '+fmtD(sampai);
   else if(dari)periode='mulai '+fmtD(dari);
   else if(sampai)periode='s/d '+fmtD(sampai);
-  return {list,total,totalM3,skipped,noInv,periode,dibuat:new Date().toISOString()};
+  return {list,total,totalM3,skipped,tanpaHarga,noInv,periode,dibuat:new Date().toISOString()};
 }
 
 const fmtM3=n=>n>0?n.toLocaleString('id-ID',{maximumFractionDigits:2}):'—';
 
 function buildPrint(rekap){
-  const {list,totalM3,skipped,noInv,periode}=rekap;
+  const {list,totalM3,noInv,periode,tanpaHarga}=rekap;
   const today=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
   let totalFinal=0;
   const body=list.map((g,i)=>{
     const subM3=g.items.reduce((a,it)=>a+(it.m3||0),0);
     const spa=g.items.map(it=>it.sj).filter(Boolean).join(', ');
     const so=[...new Set(g.items.map(it=>it.so).filter(Boolean))].join(', ');
-    const hFinal=g.totalBaris;
-    totalFinal+=hFinal;
-    return `<tr>
+    totalFinal+=g.totalBaris;
+    const kosong = !(g.totalBaris>0);
+    return `<tr${kosong?' style="background:#fff8e1"':''}>
       <td class="c">${i+1}</td>
       <td>${g.dist||'—'}</td>
       <td>${g.exp||'—'}</td>
@@ -612,10 +613,10 @@ function buildPrint(rekap){
       <td>${spa||'—'}</td>
       <td>${so||'—'}</td>
       <td class="r">${fmtM3(subM3)}</td>
-      <td class="r">${fmtRp(g.rate)}</td>
+      <td class="r">${g.rate>0?fmtRp(g.rate):'—'}</td>
       <td class="r">${g.revisi?fmtRp(g.revisi):''}</td>
       <td class="r">${g.lainLain?fmtRp(g.lainLain):''}</td>
-      <td class="r"><b>${fmtRp(g.totalBaris)}</b></td>
+      <td class="r"><b>${g.totalBaris>0?fmtRp(g.totalBaris):'—'}</b></td>
       <td>${g.keterangan||''}</td>
     </tr>`;
   }).join('');
@@ -639,7 +640,7 @@ function buildPrint(rekap){
       <tbody>${body}</tbody>
       <tfoot><tr><td colspan="7" class="r">TOTAL</td><td class="r">${fmtM3(totalM3)}</td><td colspan="3"></td><td class="r">${fmtRp(totalFinal)||'Rp 0'}</td><td></td></tr></tfoot>
     </table>
-    ${skipped>0?`<p style="font-size:11px;color:#666;margin-top:6px">*) ${skipped} truck terpilih tidak dicetak karena belum ada harga.</p>`:''}
+    ${tanpaHarga>0?`<p style="font-size:11px;color:#b8841a;margin-top:6px">*) ${tanpaHarga} truck belum ada harga (ditandai kuning) — total belum termasuk baris tsb.</p>`:''}
     <div class="p-sign">
       <div><div class="role">Diperiksa oleh,</div><div class="nm">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div></div>
       <div><div class="role">Mengetahui,</div><div class="nm">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div></div>
