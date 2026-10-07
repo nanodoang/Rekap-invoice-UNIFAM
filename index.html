@@ -328,10 +328,10 @@ function parseSheet(data){
   const H=data[hIdx];
   // petakan kolom berdasarkan nama header (ID + EN)
   const cExp = findCol(H,['expedition','ekspedisi','expedisi','ekpedisi']);
-  const cNopol=findCol(H,['truck','nopol','no pol','polisi']);
   const cTgl = findCol(H,['ship date','tgl kirim','tanggal kirim','tgl','tanggal']);
   const cDist= findCol(H,['distributor','distri','customer','pelanggan']);
-  const cCont= findCol(H,['container num','kontainer','container','no kontener']);
+  const cNopol= findCol(H,['truck','nopol','no pol','polisi']);                    // No Truck = kolom Truck No
+  const cCont = findCol(H,['container num','kontainer','container','no kontener']); // No Kontainer = kolom Container Num
   // Rate: ada 2 kolom "Rate" (satu kosong). Pilih kolom header 'rate' yang BENAR-BENAR berisi data.
   const rateCols=[];
   H.forEach((h,ci)=>{ const s=String(h||'').toLowerCase(); if(/rate|harga|tarif|biaya|nominal/.test(s)) rateCols.push(ci); });
@@ -608,7 +608,8 @@ function buildPrint(rekap){
       <td class="c">${i+1}</td>
       <td>${g.dist||'—'}</td>
       <td>${g.exp||'—'}</td>
-      <td>${g.nopol||'—'}<br><small>${g.cont||''}</small></td>
+      <td>${g.nopol||'—'}</td>
+      <td>${g.cont||'—'}</td>
       <td>${g.tgl||'—'}</td>
       <td>${spa||'—'}</td>
       <td>${so||'—'}</td>
@@ -635,10 +636,10 @@ function buildPrint(rekap){
     </div>
     <table>
       <thead><tr>
-        <th class="c" style="width:24px">No</th><th style="width:130px">Distributor</th><th style="width:44px">Eksp</th><th style="width:96px">No Truck / Kontainer</th><th style="width:58px">Tgl</th><th>No Surat Jalan</th><th>No SO</th><th class="r" style="width:42px">m³</th><th class="r" style="width:82px">Harga</th><th class="r" style="width:82px">Revisi</th><th class="r" style="width:74px">Lain-lain</th><th class="r" style="width:88px">Total</th><th style="width:88px">Ket</th>
+        <th class="c" style="width:22px">No</th><th style="width:120px">Distributor</th><th style="width:40px">Eksp</th><th style="width:70px">No Truck</th><th style="width:80px">No Kontainer</th><th style="width:52px">Tgl</th><th>No Surat Jalan</th><th>No SO</th><th class="r" style="width:40px">m³</th><th class="r" style="width:78px">Harga</th><th class="r" style="width:78px">Revisi</th><th class="r" style="width:70px">Lain-lain</th><th class="r" style="width:84px">Total</th><th style="width:80px">Ket</th>
       </tr></thead>
       <tbody>${body}</tbody>
-      <tfoot><tr><td colspan="7" class="r">TOTAL</td><td class="r">${fmtM3(totalM3)}</td><td colspan="3"></td><td class="r">${fmtRp(totalFinal)||'Rp 0'}</td><td></td></tr></tfoot>
+      <tfoot><tr><td colspan="8" class="r">TOTAL</td><td class="r">${fmtM3(totalM3)}</td><td colspan="3"></td><td class="r">${fmtRp(totalFinal)||'Rp 0'}</td><td></td></tr></tfoot>
     </table>
     ${tanpaHarga>0?`<p style="font-size:11px;color:#b8841a;margin-top:6px">*) ${tanpaHarga} truck belum ada harga (ditandai kuning) — total belum termasuk baris tsb.</p>`:''}
     <div class="p-sign">
