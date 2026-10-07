@@ -301,9 +301,17 @@ function showRaw(data){
   $('results').innerHTML=html;
 }
 
+// header "gabungan" = menyatukan banyak nama kolom (mis. "Truck NoContainer NumSales order") -> abaikan
+function isPoisoned(h){
+  const s=String(h||'').toLowerCase();
+  let hit=0;
+  ['truck','container','sales order','distributor','expedition','sjpa','ship date'].forEach(k=>{ if(s.includes(k))hit++; });
+  return hit>=2; // mengandung 2+ nama kolom berbeda = gabungan
+}
 function findCol(headers, keywords){
   for(let i=0;i<headers.length;i++){
     const h=String(headers[i]||'').toLowerCase().trim();
+    if(isPoisoned(h)) continue;            // lewati kolom gabungan (kolom A)
     for(const kw of keywords){ if(h.includes(kw)) return i; }
   }
   return -1;
